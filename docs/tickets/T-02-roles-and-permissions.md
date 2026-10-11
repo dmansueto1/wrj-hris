@@ -43,4 +43,3 @@
 - [ ] Screens work at phone width (375 px) and desktop width
 - [ ] No errors in the browser console or `storage/logs/laravel.log`
 - [ ] Code formatted with `./vendor/bin/pint`
-- [ ] Committed with the ticket ID and merged to `main`

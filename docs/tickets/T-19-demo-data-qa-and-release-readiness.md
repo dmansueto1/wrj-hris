@@ -8,7 +8,7 @@
 **Build**
 
 - `DemoDataSeeder` (refuses to run when `APP_ENV=production`): 1 admin, 2 staff, 10 workers with rates from ₱70 to ₱120, 3 Ongoing projects and 1 Completed, 15 materials, 2 weeks of morning and afternoon sessions (some workers switching projects mid-day), material entries on each project, and one flagged session.
-- Coverage: install PCOV (or use Xdebug) and run `php artisan test --coverage --min=70`; add the same check to GitHub Actions with `coverage: pcov`.
+- Coverage: install PCOV (or use Xdebug) and run `php artisan test --coverage --min=70`.
 - Smoke test: as Admin, every main page returns 200.
 - Production checklist in `README.md`: `APP_ENV=production`, `APP_DEBUG=false`, HTTPS, `php artisan migrate --force`, `php artisan optimize`, `npm run build`, cron `* * * * * php artisan schedule:run`, daily database backup, default admin password changed.
 
@@ -31,4 +31,3 @@
 - [ ] Screens work at phone width (375 px) and desktop width
 - [ ] No errors in the browser console or `storage/logs/laravel.log`
 - [ ] Code formatted with `./vendor/bin/pint`
-- [ ] Committed with the ticket ID and merged to `main`

@@ -8,11 +8,12 @@ Work through the tickets in order, one ticket per Git branch. Each ticket can be
 
 **Workflow per ticket**
 
-1. Create a branch: `git checkout -b T-01-baseline-config`
+1. Create the branch from the latest `develop`: `git checkout develop && git pull && git checkout -b T-01-baseline-config`
 2. Paste the ticket into your assistant using the prompt template below, or follow it yourself.
 3. Review the code it writes, then run `php artisan test` and check the screen in the browser.
-4. Commit with the ticket ID: `git commit -m "T-01: Baseline config and test setup"`
-5. Merge into `main` and push.
+4. Run `/review` in a new conversation and fix findings until the result is CLEAN or NITS ONLY.
+
+Committing, pushing and merging are done manually by the developer and are not part of any ticket.
 
 **Prompt template for the AI assistant**
 
@@ -45,7 +46,6 @@ When finished, list every file you created or changed.
 - [ ] Screens work at phone width (375 px) and desktop width
 - [ ] No errors in the browser console or `storage/logs/laravel.log`
 - [ ] Code formatted with `./vendor/bin/pint`
-- [ ] Committed with the ticket ID and merged to `main`
 
 **Ticket index**
 
@@ -90,14 +90,12 @@ These five tickets give you a secure, role-aware app shell that every later feat
 - `tests/Pest.php`: apply `RefreshDatabase` to all Feature tests.
 - Routes: `/` redirects guests to `/login` and signed-in users to `/clock`. Remove the default welcome page.
 - Make sure no registration route, view or "Register" link exists.
-- GitHub Actions: update the starter kit's test workflow to start a MySQL 8 service and run `php artisan test`.
 
 **Acceptance criteria**
 
 - [ ] `php artisan test` passes on a fresh clone.
 - [ ] `/register` returns 404.
 - [ ] Visiting `/` while logged out lands on the login page.
-- [ ] Pushing to GitHub runs the tests automatically and they pass.
 
 **Tests**
 
@@ -647,7 +645,7 @@ The last three tickets make every sensitive change traceable, give the client ex
 **Build**
 
 - `DemoDataSeeder` (refuses to run when `APP_ENV=production`): 1 admin, 2 staff, 10 workers with rates from ₱70 to ₱120, 3 Ongoing projects and 1 Completed, 15 materials, 2 weeks of morning and afternoon sessions (some workers switching projects mid-day), material entries on each project, and one flagged session.
-- Coverage: install PCOV (or use Xdebug) and run `php artisan test --coverage --min=70`; add the same check to GitHub Actions with `coverage: pcov`.
+- Coverage: install PCOV (or use Xdebug) and run `php artisan test --coverage --min=70`.
 - Smoke test: as Admin, every main page returns 200.
 - Production checklist in `README.md`: `APP_ENV=production`, `APP_DEBUG=false`, HTTPS, `php artisan migrate --force`, `php artisan optimize`, `npm run build`, cron `* * * * * php artisan schedule:run`, daily database backup, default admin password changed.
 

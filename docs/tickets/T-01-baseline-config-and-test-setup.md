@@ -14,14 +14,12 @@
 - `tests/Pest.php`: apply `RefreshDatabase` to all Feature tests.
 - Routes: `/` redirects guests to `/login` and signed-in users to `/clock`. Remove the default welcome page.
 - Make sure no registration route, view or "Register" link exists.
-- GitHub Actions: update the starter kit's test workflow to start a MySQL 8 service and run `php artisan test`.
 
 **Acceptance criteria**
 
 - [ ] `php artisan test` passes on a fresh clone.
 - [ ] `/register` returns 404.
 - [ ] Visiting `/` while logged out lands on the login page.
-- [ ] Pushing to GitHub runs the tests automatically and they pass.
 
 **Tests**
 
@@ -38,4 +36,3 @@
 - [ ] Screens work at phone width (375 px) and desktop width
 - [ ] No errors in the browser console or `storage/logs/laravel.log`
 - [ ] Code formatted with `./vendor/bin/pint`
-- [ ] Committed with the ticket ID and merged to `main`
