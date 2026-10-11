@@ -33,7 +33,7 @@
 
 **Tests**
 
-- Feature (dataset): for each role, the set of permissions equals the table above — no more, no less.
+- Feature (data provider): for each role, the set of permissions equals the table above — no more, no less.
 - Feature: running the seeder twice does not create duplicates.
 
 ## Definition of done

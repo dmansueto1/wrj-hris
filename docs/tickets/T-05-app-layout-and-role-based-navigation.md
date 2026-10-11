@@ -29,7 +29,7 @@
 
 **Tests**
 
-- Feature (dataset by role): menu shows and hides the right items.
+- Feature (data provider by role): menu shows and hides the right items.
 - Feature: worker `GET /users` returns 403; admin returns 200.
 - Feature: after login the user is redirected to `/clock`.
 - Unit: `Money::format('1234.5')` returns `₱ 1,234.50`; `Money::format('0')` returns `₱ 0.00`.

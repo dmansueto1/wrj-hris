@@ -27,7 +27,7 @@
 
 **Tests**
 
-- Unit (dataset): `LaborCost::forMinutes` — 270 min @ 80.00 → 4.50 / 360.00; 260 @ 80.00 → 4.33 / 346.67; 1 @ 75.00 → 0.02 / 1.25; 0 @ 80.00 → 0.00 / 0.00; 480 @ 95.50 → 8.00 / 764.00.
+- Unit (data provider): `LaborCost::forMinutes` — 270 min @ 80.00 → 4.50 / 360.00; 260 @ 80.00 → 4.33 / 346.67; 1 @ 75.00 → 0.02 / 1.25; 0 @ 80.00 → 0.00 / 0.00; 480 @ 95.50 → 8.00 / 764.00.
 - Feature: clock in at 7:00, clock out at 11:30 (`$this->travelTo(...)`) → 270 minutes, 4.50 hours, ₱360.00, status closed.
 - Feature: clock in twice without clocking out throws `AlreadyClockedInException`.
 - Feature: clock out with no open session throws `NotClockedInException`.

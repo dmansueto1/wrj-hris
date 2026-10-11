@@ -3,9 +3,11 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * @extends Factory<User>
@@ -25,10 +27,16 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'employee_no' => 'EMP-'.fake()->unique()->numerify('#####'),
+            'first_name' => fake()->firstName(),
+            'last_name' => fake()->lastName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
+            'position' => fake()->randomElement(['Mason', 'Carpenter', 'Laborer', 'Helper']),
+            'hourly_rate' => '80.00',
+            'status' => User::STATUS_ACTIVE,
             'password' => static::$password ??= Hash::make('password'),
+            'must_change_password' => false,
             'remember_token' => Str::random(10),
         ];
     }
@@ -43,13 +51,36 @@ class UserFactory extends Factory
         ]);
     }
 
-    /**
-     * Indicate that the model has two-factor authentication configured.
-     *
-     * Two-factor authentication is out of scope for Phase 1, so this is a no-op.
-     */
-    public function withTwoFactor(): static
+    public function admin(): static
     {
-        return $this;
+        return $this->withRole('admin');
+    }
+
+    public function staff(): static
+    {
+        return $this->withRole('staff');
+    }
+
+    public function worker(): static
+    {
+        return $this->withRole('worker');
+    }
+
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => User::STATUS_INACTIVE,
+        ]);
+    }
+
+    private function withRole(string $role): static
+    {
+        return $this->afterCreating(function (User $user) use ($role) {
+            if (! Role::where('name', $role)->where('guard_name', 'web')->exists()) {
+                (new RolesAndPermissionsSeeder)->run();
+            }
+
+            $user->assignRole($role);
+        });
     }
 }

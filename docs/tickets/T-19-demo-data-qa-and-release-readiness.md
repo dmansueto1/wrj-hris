@@ -22,7 +22,7 @@
 
 - Feature: `DemoDataSeeder` runs on a fresh database without errors.
 - Feature: `DemoDataSeeder` throws when the environment is production.
-- Feature (dataset of routes): admin gets 200 on `/clock`, `/attendance`, `/attendance/mine`, `/projects`, `/materials`, `/material-entries`, `/users`, `/reports`.
+- Feature (data provider of routes): admin gets 200 on `/clock`, `/attendance`, `/attendance/mine`, `/projects`, `/materials`, `/material-entries`, `/users`, `/reports`.
 
 ## Definition of done
 

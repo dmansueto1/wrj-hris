@@ -10,10 +10,13 @@
    - Open ANOTHER new conversation and run `/review T-01`. Reply `fix` until the result is CLEAN or NITS ONLY.
    - Commit, push and merge into `develop` yourself. Claude never commits.
 
+New feature not in T-01 to T-19? Run `/create-ticket <what it is about>` on `develop`, answer its questions, then build it with `/ticket T-XX`.
+
 Files:
 
 - `CLAUDE.md` — project rules Claude reads every session
 - `.claude/commands/ticket.md` — the `/ticket T-XX` command (builds a ticket)
+- `.claude/commands/create-ticket.md` — the `/create-ticket <description>` command (writes a new ticket synced with the current code)
 - `.claude/commands/review.md` — the `/review T-XX` command (reviews a built ticket against `develop`)
 - `docs/PRD.md` — the requirements
 - `docs/TICKETS.md` — all tickets in one file (overview and index)

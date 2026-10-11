@@ -18,7 +18,7 @@ Committing, pushing and merging are done manually by the developer and are not p
 **Prompt template for the AI assistant**
 
 ```text
-You are working on a Laravel + MySQL project (Livewire starter kit, Flux UI, Pest).
+You are working on a Laravel + MySQL project (Livewire starter kit, Flux UI, PHPUnit test classes).
 Read the project conventions below, then implement this ticket exactly.
 Do not build anything outside the ticket's scope.
 Write the listed tests first, then the code, and run `php artisan test` until all pass.
@@ -36,7 +36,7 @@ When finished, list every file you created or changed.
 - Timezone `Asia/Manila`. Currency shown as `₱ 1,234.56`.
 - Records are soft-deleted (archived), never hard-deleted.
 - Roles: `admin`, `staff`, `worker` (Spatie permission). Every route and Livewire action checks permissions.
-- Tests use Pest. Unit tests go in `tests/Unit`, feature tests in `tests/Feature`. Use model factories for test data.
+- Tests are PHPUnit test classes (`class XxxTest extends Tests\TestCase`) with camelCase methods such as `public function testFieldMustReturnNullOrEmpty(): void`, run by `php artisan test` (Pest is only the runner; do not write Pest-style `test()` / `it()` / `expect()` tests). Feature tests `use RefreshDatabase;`. Use `#[DataProvider]` for repeated cases. Unit tests go in `tests/Unit`, feature tests in `tests/Feature`. Use model factories for test data.
 - Out of scope for Phase 1: two-factor authentication, passkeys, registration, email verification, native mobile apps, offline mode, payroll.
 
 **Definition of done (every ticket)**
@@ -87,7 +87,7 @@ These five tickets give you a secure, role-aware app shell that every later feat
 - `config/app.php`: `'timezone' => 'Asia/Manila'`.
 - Create a MySQL test database `wrj_hris_test` and grant the `wrj_hris` user access.
 - `phpunit.xml`: set `DB_CONNECTION=mysql`, `DB_DATABASE=wrj_hris_test`.
-- `tests/Pest.php`: apply `RefreshDatabase` to all Feature tests.
+- Feature test classes `use RefreshDatabase;`.
 - Routes: `/` redirects guests to `/login` and signed-in users to `/clock`. Remove the default welcome page.
 - Make sure no registration route, view or "Register" link exists.
 
@@ -139,7 +139,7 @@ These five tickets give you a secure, role-aware app shell that every later feat
 
 **Tests**
 
-- Feature (dataset): for each role, the set of permissions equals the table above — no more, no less.
+- Feature (data provider): for each role, the set of permissions equals the table above — no more, no less.
 - Feature: running the seeder twice does not create duplicates.
 
 ### T-03 – Users schema, rate history and admin seeder
@@ -150,19 +150,21 @@ These five tickets give you a secure, role-aware app shell that every later feat
 
 **Build**
 
-- Migration on `users`: add `employee_no` (string 30, unique), `position` (nullable), `hourly_rate` (decimal 10,2, default 0), `status` (enum `active`/`inactive`, default `active`), `must_change_password` (boolean, default false), `deleted_at`; make `email` nullable.
+- Migration on `users`: add `employee_no` (string 30, unique), `first_name` and `last_name` (string 100), `username` (string 50, unique), `position` (nullable), `hourly_rate` (decimal 10,2, default 0), `status` (enum `active`/`inactive`, default `active`), `must_change_password` (boolean, default false), `deleted_at`; make `email` nullable.
 - Migration `user_rate_histories`: `user_id` (FK), `hourly_rate` (decimal 10,2), `effective_from` (date), `changed_by` (nullable FK to users), timestamps.
 - `User` model: `SoftDeletes`, casts (`hourly_rate` → `decimal:2`), `rateHistories()` relation, `scopeActive()`.
 - `App\Services\UserRateService::changeRate(User $user, string $newRate, User $changedBy): void` — in one transaction, updates `hourly_rate` and adds a history row dated today. Does nothing if the rate is unchanged.
 - Creating a user also writes the first history row.
 - `UserFactory` states: `admin()`, `staff()`, `worker()`, `inactive()`.
-- `AdminUserSeeder`: creates employee no. `ADM-0001` using `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`, role `admin`.
+- `App\Services\UsernameService`: on create, generates the username from the first letter of the first name plus the last name, lowercase letters only (John Doe → `jdoe`, Juan dela Cruz → `jdelacruz`). If taken (archived users included), append 2, 3, … (`jdoe2`). `name` is kept filled as "First Last".
+- `AdminUserSeeder`: creates employee no. `ADM-0001`, username `admin`, role `admin`, with a random strong password printed once in the console and `must_change_password = true`. Does nothing if `ADM-0001` already exists. No password is stored in code or `.env`.
 
 **Acceptance criteria**
 
-- [ ] `php artisan migrate:fresh --seed` creates the roles and one admin who can log in.
+- [ ] `php artisan migrate:fresh --seed` creates the roles and one admin `ADM-0001` (username `admin`, role `admin`, `must_change_password` true). Logging in with it is covered by T-04.
 - [ ] Changing a rate updates the user and adds exactly one history row.
 - [ ] A user can be saved without an email.
+- [ ] New users get a username like `jdoe`; a second John Doe gets `jdoe2`.
 
 **Tests**
 
@@ -170,16 +172,18 @@ These five tickets give you a secure, role-aware app shell that every later feat
 - Feature: `changeRate` to the same rate adds no history row.
 - Feature: duplicate `employee_no` is rejected by the database.
 - Feature: soft-deleted user still exists with `withTrashed()`.
+- Feature: John Doe gets `jdoe`; a second John Doe gets `jdoe2`.
+- Feature: running `AdminUserSeeder` twice creates one admin and does not change its password.
 
 ### T-04 – Login and security hardening
 
-**Goal:** users log in with employee number or email under strong, enforced security rules.
+**Goal:** users log in with their username under strong, enforced security rules.
 
 **Depends on:** T-03
 
 **Build**
 
-- Change the starter kit's login (the Livewire login component, or Fortify's `authenticateUsing` if the kit uses Fortify) so one field labeled "Employee no. or email" accepts either: if the value contains `@`, match `email`; otherwise match `employee_no`.
+- Change the starter kit's login (the Livewire login component, or Fortify's `authenticateUsing` if the kit uses Fortify) so one field labeled "Username" matches the `username` column only (not email or employee no.).
 - Reject inactive users with: "Your account is inactive. Please contact the administrator."
 - Rate limit: after 5 failed attempts for the same identifier and IP, lock for 15 minutes and show the minutes remaining.
 - `AppServiceProvider`: `Password::defaults()` = min 12, mixed case, numbers, symbols; add `uncompromised()` only in production.
@@ -188,14 +192,14 @@ These five tickets give you a secure, role-aware app shell that every later feat
 
 **Acceptance criteria**
 
-- [ ] Login works with `ADM-0001` and with the admin email.
+- [ ] Login works with username `admin` and the password printed by `AdminUserSeeder`.
 - [ ] The 6th wrong attempt shows a lockout message.
 - [ ] An inactive user cannot log in.
 - [ ] A user created with `must_change_password` cannot open any page until they set a new password.
 
 **Tests**
 
-- Feature: login by employee number succeeds; login by email succeeds; wrong password fails.
+- Feature: login by username succeeds; login by email or employee number fails; wrong password fails.
 - Feature: inactive user is rejected with the inactive message.
 - Feature: 5 failures then a 6th attempt (even with the correct password) is locked.
 - Feature: `must_change_password` user is redirected to the change-password page.
@@ -232,7 +236,7 @@ These five tickets give you a secure, role-aware app shell that every later feat
 
 **Tests**
 
-- Feature (dataset by role): menu shows and hides the right items.
+- Feature (data provider by role): menu shows and hides the right items.
 - Feature: worker `GET /users` returns 403; admin returns 200.
 - Feature: after login the user is redirected to `/clock`.
 - Unit: `Money::format('1234.5')` returns `₱ 1,234.50`; `Money::format('0')` returns `₱ 0.00`.
@@ -249,8 +253,8 @@ These three tickets give the Admin (and Staff, for materials) the screens to man
 
 **Build**
 
-- `/users` list (permission `users.manage`, behind `password.confirm`): columns employee no., name, role, position, hourly rate, status; search by name or employee no.; filter by role and status; 20 per page.
-- Create form: employee no., name, email (optional), role, position, hourly rate, temporary password. New users get `must_change_password = true`.
+- `/users` list (permission `users.manage`, behind `password.confirm`): columns employee no., name, username, role, position, hourly rate, status; search by name, username or employee no.; filter by role and status; 20 per page.
+- Create form: employee no., first name, last name, email (optional), role, position, hourly rate, temporary password. The username is generated (see T-03) and shown after saving. New users get `must_change_password = true`.
 - Edit form: same fields except password. A changed hourly rate goes through `UserRateService::changeRate`.
 - Rate history table on the edit page: rate, effective from, changed by.
 - Actions: Deactivate / Reactivate, Reset password (sets a new temporary password and `must_change_password = true`), Archive (soft delete).
@@ -358,7 +362,7 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
 
 **Tests**
 
-- Unit (dataset): `LaborCost::forMinutes` — 270 min @ 80.00 → 4.50 / 360.00; 260 @ 80.00 → 4.33 / 346.67; 1 @ 75.00 → 0.02 / 1.25; 0 @ 80.00 → 0.00 / 0.00; 480 @ 95.50 → 8.00 / 764.00.
+- Unit (data provider): `LaborCost::forMinutes` — 270 min @ 80.00 → 4.50 / 360.00; 260 @ 80.00 → 4.33 / 346.67; 1 @ 75.00 → 0.02 / 1.25; 0 @ 80.00 → 0.00 / 0.00; 480 @ 95.50 → 8.00 / 764.00.
 - Feature: clock in at 7:00, clock out at 11:30 (`$this->travelTo(...)`) → 270 minutes, 4.50 hours, ₱360.00, status closed.
 - Feature: clock in twice without clocking out throws `AlreadyClockedInException`.
 - Feature: clock out with no open session throws `NotClockedInException`.
@@ -510,7 +514,7 @@ These tickets add material costs with the 20% markup and bring labor and materia
 
 **Tests**
 
-- Unit (dataset): `MaterialCost::compute` — 30.00 × 100 @ 0.20 → 3,000.00 / 600.00 / 3,600.00; 12.50 × 3.5 → 43.75 / 8.75 / 52.50; 0.33 × 3 → 0.99 / 0.20 / 1.19.
+- Unit (data provider): `MaterialCost::compute` — 30.00 × 100 @ 0.20 → 3,000.00 / 600.00 / 3,600.00; 12.50 × 3.5 → 43.75 / 8.75 / 52.50; 0.33 × 3 → 0.99 / 0.20 / 1.19.
 - Feature: saving an entry fills subtotal, markup and total.
 - Feature: entry saved at 0.20, setting changed to 0.25, entry still totals ₱3,600.00; a new entry uses 0.25.
 - Feature: a project with ₱360.00 labor and ₱3,600.00 materials has `runningExpenses()` = ₱3,960.00.
@@ -659,4 +663,4 @@ The last three tickets make every sensitive change traceable, give the client ex
 
 - Feature: `DemoDataSeeder` runs on a fresh database without errors.
 - Feature: `DemoDataSeeder` throws when the environment is production.
-- Feature (dataset of routes): admin gets 200 on `/clock`, `/attendance`, `/attendance/mine`, `/projects`, `/materials`, `/material-entries`, `/users`, `/reports`.
+- Feature (data provider of routes): admin gets 200 on `/clock`, `/attendance`, `/attendance/mine`, `/projects`, `/materials`, `/material-entries`, `/users`, `/reports`.

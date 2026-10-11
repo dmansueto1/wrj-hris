@@ -1,9 +1,13 @@
 <?php
 
+namespace Tests\Unit;
+
 use Tests\TestCase;
 
-uses(TestCase::class);
-
-test('app timezone is Asia/Manila', function () {
-    expect(config('app.timezone'))->toBe('Asia/Manila');
-});
+class AppConfigTest extends TestCase
+{
+    public function testAppTimezoneIsAsiaManila(): void
+    {
+        $this->assertSame('Asia/Manila', config('app.timezone'));
+    }
+}

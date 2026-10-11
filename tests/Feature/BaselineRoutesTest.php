@@ -1,17 +1,29 @@
 <?php
 
+namespace Tests\Feature;
+
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
-test('registration page does not exist', function () {
-    $this->get('/register')->assertNotFound();
-});
+class BaselineRoutesTest extends TestCase
+{
+    use RefreshDatabase;
 
-test('guests visiting the home page are redirected to login', function () {
-    $this->get('/')->assertRedirect(route('login'));
-});
+    public function testRegistrationPageDoesNotExist(): void
+    {
+        $this->get('/register')->assertNotFound();
+    }
 
-test('signed-in users visiting the home page are redirected to clock', function () {
-    $this->actingAs(User::factory()->create());
+    public function testGuestsVisitingTheHomePageAreRedirectedToLogin(): void
+    {
+        $this->get('/')->assertRedirect(route('login'));
+    }
 
-    $this->get('/')->assertRedirect('/clock');
-});
+    public function testSignedInUsersVisitingTheHomePageAreRedirectedToClock(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->get('/')->assertRedirect('/clock');
+    }
+}

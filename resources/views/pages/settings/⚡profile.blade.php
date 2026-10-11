@@ -11,7 +11,6 @@ use Livewire\Component;
 new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
 
-    public string $name = '';
     public string $email = '';
 
     /**
@@ -19,8 +18,7 @@ new #[Title('Profile settings')] class extends Component {
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->name;
-        $this->email = Auth::user()->email;
+        $this->email = Auth::user()->email ?? '';
     }
 
     /**
@@ -30,9 +28,9 @@ new #[Title('Profile settings')] class extends Component {
     {
         $user = Auth::user();
 
-        $validated = $this->validate($this->profileRules($user->id));
+        $validated = $this->validate(['email' => $this->emailRules($user->id)]);
 
-        $user->fill($validated);
+        $user->fill(['email' => $validated['email'] ?: null]);
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
@@ -50,12 +48,12 @@ new #[Title('Profile settings')] class extends Component {
 
     <flux:heading level="2" class="sr-only">{{ __('Profile settings') }}</flux:heading>
 
-    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
+    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your email address')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-            <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+            <flux:input :value="auth()->user()->name" :label="__('Name')" type="text" readonly disabled />
 
             <div>
-                <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+                <flux:input wire:model="email" :label="__('Email (optional)')" type="email" autocomplete="email" />
 
             </div>
 

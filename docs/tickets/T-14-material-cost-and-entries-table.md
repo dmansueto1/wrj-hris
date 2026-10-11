@@ -22,7 +22,7 @@
 
 **Tests**
 
-- Unit (dataset): `MaterialCost::compute` — 30.00 × 100 @ 0.20 → 3,000.00 / 600.00 / 3,600.00; 12.50 × 3.5 → 43.75 / 8.75 / 52.50; 0.33 × 3 → 0.99 / 0.20 / 1.19.
+- Unit (data provider): `MaterialCost::compute` — 30.00 × 100 @ 0.20 → 3,000.00 / 600.00 / 3,600.00; 12.50 × 3.5 → 43.75 / 8.75 / 52.50; 0.33 × 3 → 0.99 / 0.20 / 1.19.
 - Feature: saving an entry fills subtotal, markup and total.
 - Feature: entry saved at 0.20, setting changed to 0.25, entry still totals ₱3,600.00; a new entry uses 0.25.
 - Feature: a project with ₱360.00 labor and ₱3,600.00 materials has `runningExpenses()` = ₱3,960.00.

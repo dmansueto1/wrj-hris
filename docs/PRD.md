@@ -82,7 +82,7 @@ Phase 1 is a responsive web system only, used through a browser; it requires an 
 
 **US-01 – As any user, I want to log in securely so only I can record my attendance.**
 
-- Login uses employee number or email plus password.
+- Login uses a username plus password. The username is the first letter of the first name plus the last name (John Doe → `jdoe`); if it is taken, a number is added (`jdoe2`).
 - Passwords must be at least 12 characters with upper and lower case letters, a number and a symbol.
 - After 5 failed attempts the account is locked for 15 minutes.
 - Inactive users cannot log in.
@@ -128,7 +128,7 @@ Phase 1 is a responsive web system only, used through a browser; it requires an 
 
 **US-20 – As an Admin, I want to manage users and their hourly rates.**
 
-- Fields: employee no., name, email/username, role, position, hourly rate, status.
+- Fields: employee no., first name, last name, username (generated), email (optional, used for password reset), role, position, hourly rate, status.
 - A rate change records the new rate and its effective date; it applies only to new sessions.
 
 **US-21 – As an Admin, I want to manage projects.**
@@ -261,7 +261,7 @@ The system is a single Laravel web application on MySQL; no separate mobile app 
 
 | Table | Purpose | Key fields |
 | --- | --- | --- |
-| users | Workers, staff, admins | employee_no, name, role, hourly_rate, status |
+| users | Workers, staff, admins | employee_no, first_name, last_name, username, role, hourly_rate, status |
 | user_rate_histories | Rate changes over time | user_id, hourly_rate, effective_from |
 | projects | Project masterfile | code, name, location, budget, status |
 | materials | Material masterfile | code, name, unit, default_price |
@@ -279,9 +279,9 @@ Every feature ships with automated tests, and no change is merged unless the ful
 
 | Test type | What it covers | Tool |
 | --- | --- | --- |
-| Unit tests | Pure calculations with no database: labor cost, hours, material cost and markup, rounding | Pest |
-| Feature tests | Full flows through the app: login, clock in/out, masterfile screens, material entries, running expenses, reports | Pest + Livewire testing helpers |
-| Authorization tests | Each role can only see and do what the permissions table in section 3 allows | Pest |
+| Unit tests | Pure calculations with no database: labor cost, hours, material cost and markup, rounding | PHPUnit |
+| Feature tests | Full flows through the app: login, clock in/out, masterfile screens, material entries, running expenses, reports | PHPUnit + Livewire testing helpers |
+| Authorization tests | Each role can only see and do what the permissions table in section 3 allows | PHPUnit |
 | Manual acceptance testing (UAT) | Real users on a phone, tablet and desktop before go-live | Checklist |
 
 **Standards**
@@ -316,7 +316,7 @@ Labor cost is computed from exact minutes, so rounding the displayed hours never
 
 ### 10.4 Required feature tests
 
-- **Login:** valid login by employee number and by email; wrong password rejected; lockout after 5 failed attempts; inactive user blocked; registration page does not exist.
+- **Login:** valid login by username; login by email or employee number rejected; wrong password rejected; lockout after 5 failed attempts; inactive user blocked; registration page does not exist.
 - **Clock in:** only Ongoing projects are listed; the hourly rate is saved at clock-in; a second clock-in while a session is open is rejected.
 - **Clock out:** hours and labor cost are saved; the project's running expenses increase by exactly that amount.
 - **Multiple sessions:** morning on Project A and afternoon on Project B produce two sessions charged to the right projects; the lunch gap is not counted.

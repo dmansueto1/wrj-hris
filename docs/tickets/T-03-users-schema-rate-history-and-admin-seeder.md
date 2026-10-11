@@ -7,19 +7,21 @@
 
 **Build**
 
-- Migration on `users`: add `employee_no` (string 30, unique), `position` (nullable), `hourly_rate` (decimal 10,2, default 0), `status` (enum `active`/`inactive`, default `active`), `must_change_password` (boolean, default false), `deleted_at`; make `email` nullable.
+- Migration on `users`: add `employee_no` (string 30, unique), `first_name` and `last_name` (string 100), `username` (string 50, unique), `position` (nullable), `hourly_rate` (decimal 10,2, default 0), `status` (enum `active`/`inactive`, default `active`), `must_change_password` (boolean, default false), `deleted_at`; make `email` nullable.
 - Migration `user_rate_histories`: `user_id` (FK), `hourly_rate` (decimal 10,2), `effective_from` (date), `changed_by` (nullable FK to users), timestamps.
 - `User` model: `SoftDeletes`, casts (`hourly_rate` → `decimal:2`), `rateHistories()` relation, `scopeActive()`.
 - `App\Services\UserRateService::changeRate(User $user, string $newRate, User $changedBy): void` — in one transaction, updates `hourly_rate` and adds a history row dated today. Does nothing if the rate is unchanged.
 - Creating a user also writes the first history row.
 - `UserFactory` states: `admin()`, `staff()`, `worker()`, `inactive()`.
-- `AdminUserSeeder`: creates employee no. `ADM-0001` using `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`, role `admin`.
+- `App\Services\UsernameService`: on create, generates the username from the first letter of the first name plus the last name, lowercase letters only (John Doe → `jdoe`, Juan dela Cruz → `jdelacruz`). If taken (archived users included), append 2, 3, … (`jdoe2`). `name` is kept filled as "First Last".
+- `AdminUserSeeder`: creates employee no. `ADM-0001`, username `admin`, role `admin`, with a random strong password printed once in the console and `must_change_password = true`. Does nothing if `ADM-0001` already exists. No password is stored in code or `.env`.
 
 **Acceptance criteria**
 
-- [ ] `php artisan migrate:fresh --seed` creates the roles and one admin who can log in.
+- [ ] `php artisan migrate:fresh --seed` creates the roles and one admin `ADM-0001` (username `admin`, role `admin`, `must_change_password` true). Logging in with it is covered by T-04.
 - [ ] Changing a rate updates the user and adds exactly one history row.
 - [ ] A user can be saved without an email.
+- [ ] New users get a username like `jdoe`; a second John Doe gets `jdoe2`.
 
 **Tests**
 
@@ -27,6 +29,8 @@
 - Feature: `changeRate` to the same rate adds no history row.
 - Feature: duplicate `employee_no` is rejected by the database.
 - Feature: soft-deleted user still exists with `withTrashed()`.
+- Feature: John Doe gets `jdoe`; a second John Doe gets `jdoe2`.
+- Feature: running `AdminUserSeeder` twice creates one admin and does not change its password.
 
 ## Definition of done
 

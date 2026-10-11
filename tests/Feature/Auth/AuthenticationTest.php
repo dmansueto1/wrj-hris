@@ -1,67 +1,60 @@
 <?php
 
+namespace Tests\Feature\Auth;
+
 use App\Models\User;
-use Laravel\Fortify\Features;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
-test('login screen can be rendered', function () {
-    $response = $this->get(route('login'));
+class AuthenticationTest extends TestCase
+{
+    use RefreshDatabase;
 
-    $response->assertOk();
-});
+    public function testLoginScreenCanBeRendered(): void
+    {
+        $response = $this->get(route('login'));
 
-test('users can authenticate using the login screen', function () {
-    $user = User::factory()->create();
+        $response->assertOk();
+    }
 
-    $response = $this->post(route('login.store'), [
-        'email' => $user->email,
-        'password' => 'password',
-    ]);
+    public function testUsersCanAuthenticateUsingTheLoginScreen(): void
+    {
+        $user = User::factory()->create();
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
+        $response = $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
 
-    $this->assertAuthenticated();
-});
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('dashboard', absolute: false));
 
-test('users can not authenticate with invalid password', function () {
-    $user = User::factory()->create();
+        $this->assertAuthenticated();
+    }
 
-    $response = $this->post(route('login.store'), [
-        'email' => $user->email,
-        'password' => 'wrong-password',
-    ]);
+    public function testUsersCanNotAuthenticateWithInvalidPassword(): void
+    {
+        $user = User::factory()->create();
 
-    $response->assertSessionHasErrorsIn('email');
+        $response = $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
 
-    $this->assertGuest();
-});
+        $response->assertSessionHasErrorsIn('email');
 
-test('users with two factor enabled are redirected to two factor challenge', function () {
-    $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
+        $this->assertGuest();
+    }
 
-    Features::twoFactorAuthentication([
-        'confirm' => true,
-        'confirmPassword' => true,
-    ]);
+    public function testUsersCanLogout(): void
+    {
+        $user = User::factory()->create();
 
-    $user = User::factory()->withTwoFactor()->create();
+        $response = $this->actingAs($user)->post(route('logout'));
 
-    $response = $this->post(route('login.store'), [
-        'email' => $user->email,
-        'password' => 'password',
-    ]);
+        $response->assertRedirect(route('home'));
 
-    $response->assertRedirect(route('two-factor.login'));
-    $this->assertGuest();
-});
-
-test('users can logout', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user)->post(route('logout'));
-
-    $response->assertRedirect(route('home'));
-
-    $this->assertGuest();
-});
+        $this->assertGuest();
+    }
+}
