@@ -1,4 +1,4 @@
-# Construction HRIS – Phase 1 PRD
+# WRJ HRIS – Phase 1 PRD
 
 ## 1. Summary
 

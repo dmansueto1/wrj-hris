@@ -7,10 +7,10 @@
 
 **Build**
 
-- `.env`: `APP_NAME="Construction HRIS"`, `APP_URL=http://construction-hris.test`, MySQL credentials for `construction_hris`.
+- `.env`: `APP_NAME="WRJ HRIS"`, `APP_URL=http://wrj-hris.test`, MySQL database `wrj_hris` with user `wrj_hris`.
 - `config/app.php`: `'timezone' => 'Asia/Manila'`.
-- Create a MySQL test database `construction_hris_test` and grant the `hris` user access.
-- `phpunit.xml`: set `DB_CONNECTION=mysql`, `DB_DATABASE=construction_hris_test`.
+- Create a MySQL test database `wrj_hris_test` and grant the `wrj_hris` user access.
+- `phpunit.xml`: set `DB_CONNECTION=mysql`, `DB_DATABASE=wrj_hris_test`.
 - `tests/Pest.php`: apply `RefreshDatabase` to all Feature tests.
 - Routes: `/` redirects guests to `/login` and signed-in users to `/clock`. Remove the default welcome page.
 - Make sure no registration route, view or "Register" link exists.
