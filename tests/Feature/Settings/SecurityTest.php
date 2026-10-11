@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Livewire\Settings\Security;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -57,14 +58,14 @@ class SecurityTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test('pages::settings.security')
+        Livewire::test(Security::class)
             ->set('current_password', 'password')
-            ->set('password', 'new-password')
-            ->set('password_confirmation', 'new-password')
+            ->set('password', 'Str0ng!Passw0rd')
+            ->set('password_confirmation', 'Str0ng!Passw0rd')
             ->call('updatePassword')
             ->assertHasNoErrors();
 
-        $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+        $this->assertTrue(Hash::check('Str0ng!Passw0rd', $user->refresh()->password));
     }
 
     public function testCorrectPasswordMustBeProvidedToUpdatePassword(): void
@@ -75,10 +76,10 @@ class SecurityTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test('pages::settings.security')
+        Livewire::test(Security::class)
             ->set('current_password', 'wrong-password')
-            ->set('password', 'new-password')
-            ->set('password_confirmation', 'new-password')
+            ->set('password', 'Str0ng!Passw0rd')
+            ->set('password_confirmation', 'Str0ng!Passw0rd')
             ->call('updatePassword')
             ->assertHasErrors(['current_password']);
     }

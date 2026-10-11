@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Livewire\Settings\DeleteUserModal;
+use App\Livewire\Settings\Profile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -24,7 +26,7 @@ class ProfileUpdateTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test('pages::settings.profile')
+        Livewire::test(Profile::class)
             ->set('email', 'test@example.com')
             ->call('updateProfileInformation')
             ->assertHasNoErrors();
@@ -41,7 +43,7 @@ class ProfileUpdateTest extends TestCase
 
         $this->actingAs($user)->get(route('profile.edit'))->assertOk();
 
-        Livewire::test('pages::settings.profile')
+        Livewire::test(Profile::class)
             ->set('email', '')
             ->call('updateProfileInformation')
             ->assertHasNoErrors();
@@ -55,7 +57,7 @@ class ProfileUpdateTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test('pages::settings.profile')
+        Livewire::test(Profile::class)
             ->set('email', 'john@example.com')
             ->call('updateProfileInformation')
             ->assertHasNoErrors();
@@ -70,7 +72,7 @@ class ProfileUpdateTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test('pages::settings.profile')
+        Livewire::test(Profile::class)
             ->set('email', $user->email)
             ->call('updateProfileInformation')
             ->assertHasNoErrors();
@@ -84,7 +86,7 @@ class ProfileUpdateTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test('pages::settings.delete-user-modal')
+        Livewire::test(DeleteUserModal::class)
             ->set('password', 'password')
             ->call('deleteUser')
             ->assertHasNoErrors()
@@ -100,7 +102,7 @@ class ProfileUpdateTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test('pages::settings.delete-user-modal')
+        Livewire::test(DeleteUserModal::class)
             ->set('password', 'wrong-password')
             ->call('deleteUser')
             ->assertHasErrors(['password']);

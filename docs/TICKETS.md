@@ -31,6 +31,7 @@ When finished, list every file you created or changed.
 **Project conventions (apply to every ticket)**
 
 - Laravel with the Livewire starter kit; build screens with the Livewire and Flux UI patterns already used in the starter kit.
+- Livewire components are class-based, never single-file (`⚡*.blade.php`): the class (properties, attributes such as `#[Title]`/`#[Layout]`, actions, `render()`) goes in `app/Livewire/<Area>/<Name>.php`, and its view in `resources/views/livewire/<area>/<name>.blade.php` holds only the markup and fields. Route with `Route::livewire('url', Name::class)`, embed with `<livewire:area.name />`, test with `Livewire::test(Name::class)`.
 - Business logic lives in `app/Services` or `app/Support`, never in Livewire components or controllers.
 - Money and hours are stored as `DECIMAL(…, 2)`. Calculations use whole centavos (integers) with half-up rounding; never use floats for money.
 - Timezone `Asia/Manila`. Currency shown as `₱ 1,234.56`.

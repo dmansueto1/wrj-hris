@@ -116,7 +116,8 @@ return [
     */
 
     'limiters' => [
-        'login' => 'login',
+        // null: failed logins are counted by App\Support\Auth\LoginRateLimiter (15-minute lockout after 5 failures).
+        'login' => null,
     ],
 
     /*
