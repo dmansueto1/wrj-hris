@@ -1,20 +1,35 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
-        <div class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
-            <div class="flex w-full max-w-sm flex-col gap-2">
-                <a href="{{ route('home') }}" class="flex flex-col items-center gap-2 font-medium" wire:navigate>
-                    <span class="flex h-9 w-9 mb-1 items-center justify-center rounded-md">
-                        <x-app-logo-icon class="size-9 fill-current text-black dark:text-white" />
+    <body class="min-h-screen bg-brand-page text-brand-text antialiased">
+        <div class="relative flex min-h-svh flex-col items-center justify-center px-4 py-10">
+            <!-- Navy band with a thin gold accent line -->
+            <div class="absolute inset-x-0 top-0 h-80 bg-brand-navy" aria-hidden="true">
+                <div class="absolute inset-x-0 bottom-0 h-1 bg-brand-gold"></div>
+            </div>
+
+            <div class="relative w-full max-w-sm">
+                <a href="{{ route('home') }}" class="flex flex-col items-center gap-3 text-center" wire:navigate>
+                    <span class="overflow-hidden rounded-xl shadow-lg ring-1 ring-white/10">
+                        <x-app-logo-icon class="size-24" />
                     </span>
-                    <span class="sr-only">{{ config('app.name', 'Laravel') }}</span>
+                    <span>
+                        <span class="block text-lg font-semibold tracking-wide text-white">WRJ88 Construction Corporation</span>
+                        <span class="block text-xs font-medium uppercase tracking-[0.2em] text-brand-blue-light">Employee Portal</span>
+                    </span>
                 </a>
-                <div class="flex flex-col gap-6">
-                    {{ $slot }}
+
+                <div class="mt-8 rounded-2xl bg-white p-6 shadow-xl ring-1 ring-brand-navy/5 sm:p-8">
+                    <div class="flex flex-col gap-6">
+                        {{ $slot }}
+                    </div>
                 </div>
+
+                <p class="mt-6 text-center text-xs text-brand-text/60">
+                    &copy; {{ now()->year }} WRJ88 Construction Corporation. All rights reserved.
+                </p>
             </div>
         </div>
 

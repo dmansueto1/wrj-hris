@@ -12,17 +12,19 @@ class AuthenticationTest extends TestCase
 
     public function testLoginScreenCanBeRendered(): void
     {
-        $response = $this->get(route('login'));
-
-        $response->assertOk();
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('Username')
+            ->assertDontSee('Email address')
+            ->assertSee('images/wrj88-logo.png');
     }
 
-    public function testUsersCanAuthenticateUsingTheLoginScreen(): void
+    public function testUsersCanAuthenticateWithTheirUsername(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['first_name' => 'John', 'last_name' => 'Doe']);
 
         $response = $this->post(route('login.store'), [
-            'email' => $user->email,
+            'username' => 'jdoe',
             'password' => 'password',
         ]);
 
@@ -30,21 +32,71 @@ class AuthenticationTest extends TestCase
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('dashboard', absolute: false));
 
-        $this->assertAuthenticated();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function testAdminWithoutEmailCanAuthenticateWithUsernameAdmin(): void
+    {
+        $admin = User::factory()->admin()->create(['username' => 'admin', 'email' => null]);
+
+        $this->post(route('login.store'), [
+            'username' => 'admin',
+            'password' => 'password',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertAuthenticatedAs($admin);
+    }
+
+    public function testUsernameIsNotCaseSensitive(): void
+    {
+        $user = User::factory()->create(['first_name' => 'John', 'last_name' => 'Doe']);
+
+        $this->post(route('login.store'), [
+            'username' => 'JDoe',
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function testUsersCanNotAuthenticateWithTheirEmail(): void
+    {
+        $user = User::factory()->create();
+
+        $this->post(route('login.store'), [
+            'username' => $user->email,
+            'password' => 'password',
+        ])->assertSessionHasErrors('username');
+
+        $this->assertGuest();
     }
 
     public function testUsersCanNotAuthenticateWithInvalidPassword(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->post(route('login.store'), [
-            'email' => $user->email,
+        $this->post(route('login.store'), [
+            'username' => $user->username,
+            'password' => 'wrong-password',
+        ])->assertSessionHasErrors('username');
+
+        $this->assertGuest();
+    }
+
+    public function testTheLoginErrorIsShownAboveTheUsernameField(): void
+    {
+        $user = User::factory()->create();
+
+        $this->from(route('login'))->post(route('login.store'), [
+            'username' => $user->username,
             'password' => 'wrong-password',
         ]);
 
-        $response->assertSessionHasErrorsIn('email');
+        $html = $this->get(route('login'))->getContent();
+        $error = __('auth.failed');
 
-        $this->assertGuest();
+        $this->assertSame(1, substr_count($html, $error), 'The error should appear exactly once.');
+        $this->assertLessThan(strpos($html, 'name="username"'), strpos($html, $error));
     }
 
     public function testUsersCanLogout(): void

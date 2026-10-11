@@ -23,16 +23,28 @@
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
+    /* WRJ88 brand palette. Use these tokens (e.g. bg-brand-navy, text-brand-text) instead of raw hex values. */
+    --color-brand-navy: #0B1A2E;       /* header / sidebar */
+    --color-brand-blue: #1A5BA6;       /* primary actions, links */
+    --color-brand-blue-dark: #0F3D73;  /* hover / pressed */
+    --color-brand-blue-light: #4A90D9; /* light accent, highlights on navy */
+    --color-brand-tint: #E8F1FA;       /* selected rows, soft backgrounds */
+    --color-brand-page: #F4F6F9;       /* page background */
+    --color-brand-text: #1F2937;       /* body text */
+    --color-brand-gold: #F2A900;       /* accent, use sparingly (badges, flags) */
+
+    /* Flux reads its accent from these. */
+    --color-accent: var(--color-brand-blue);
+    --color-accent-content: var(--color-brand-blue);
     --color-accent-foreground: var(--color-white);
 }
 
 @layer theme {
+    /* The navy sidebar and header use Flux's dark styles; give them the light accent so it reads on navy. */
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: var(--color-brand-blue-light);
+        --color-accent-content: var(--color-brand-blue-light);
+        --color-accent-foreground: var(--color-white);
     }
 }
 
@@ -64,3 +76,8 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/* Primary buttons darken to the brand hover blue. */
+[data-flux-button][class*="bg-[var(--color-accent)]"]:hover {
+    background-color: var(--color-brand-blue-dark);
+}

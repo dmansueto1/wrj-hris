@@ -45,7 +45,8 @@ return [
     |
     */
 
-    'username' => 'email',
+    // Users log in with their username (e.g. jdoe). Email is only used for password resets.
+    'username' => 'username',
 
     'email' => 'email',
 
