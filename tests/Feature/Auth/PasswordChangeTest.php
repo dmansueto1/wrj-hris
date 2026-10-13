@@ -16,18 +16,18 @@ class PasswordChangeTest extends TestCase
 
     public function testAUserWhoMustChangeTheirPasswordIsRedirectedFromEveryPage(): void
     {
-        $user = User::factory()->create(['must_change_password' => true]);
+        $user = User::factory()->worker()->create(['must_change_password' => true]);
 
         $this->actingAs($user);
 
-        $this->get(route('dashboard'))->assertRedirect(route('password.change'));
+        $this->get(route('clock'))->assertRedirect(route('password.change'));
         $this->get(route('profile.edit'))->assertRedirect(route('password.change'));
         $this->get(route('password.change'))->assertOk();
     }
 
     public function testAUserWhoMustChangeTheirPasswordCanStillLogOut(): void
     {
-        $user = User::factory()->create(['must_change_password' => true]);
+        $user = User::factory()->worker()->create(['must_change_password' => true]);
 
         $this->actingAs($user)->post(route('logout'))->assertRedirect(route('home'));
 
@@ -36,7 +36,7 @@ class PasswordChangeTest extends TestCase
 
     public function testChangingThePasswordClearsTheFlagAndOpensTheApp(): void
     {
-        $user = User::factory()->create(['must_change_password' => true]);
+        $user = User::factory()->worker()->create(['must_change_password' => true]);
 
         $this->actingAs($user);
 
@@ -46,18 +46,18 @@ class PasswordChangeTest extends TestCase
             ->set('password_confirmation', 'Str0ng!Passw0rd')
             ->call('changePassword')
             ->assertHasNoErrors()
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('clock'));
 
         $user->refresh();
 
         $this->assertFalse($user->must_change_password);
         $this->assertTrue(Hash::check('Str0ng!Passw0rd', $user->password));
-        $this->get(route('dashboard'))->assertOk();
+        $this->get(route('clock'))->assertOk();
     }
 
     public function testTheNewPasswordMustFollowThePasswordRules(): void
     {
-        $user = User::factory()->create(['must_change_password' => true]);
+        $user = User::factory()->worker()->create(['must_change_password' => true]);
 
         $this->actingAs($user);
 
@@ -73,7 +73,7 @@ class PasswordChangeTest extends TestCase
 
     public function testTheCurrentPasswordMustBeCorrect(): void
     {
-        $user = User::factory()->create(['must_change_password' => true]);
+        $user = User::factory()->worker()->create(['must_change_password' => true]);
 
         $this->actingAs($user);
 
@@ -89,21 +89,21 @@ class PasswordChangeTest extends TestCase
 
     public function testUsersWithoutTheFlagAreNotRedirected(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs(User::factory()->worker()->create());
 
-        $this->get(route('dashboard'))->assertOk();
+        $this->get(route('clock'))->assertOk();
     }
 
     public function testAUserWhoMustChangeTheirPasswordCannotRunOtherLivewireActions(): void
     {
-        $this->actingAs(User::factory()->create(['must_change_password' => true]));
+        $this->actingAs(User::factory()->worker()->create(['must_change_password' => true]));
 
         $this->livewireUpdate('settings.profile')->assertForbidden();
     }
 
     public function testLivewireRequestsForTheChangePasswordPageAreAllowed(): void
     {
-        $this->actingAs(User::factory()->create(['must_change_password' => true]));
+        $this->actingAs(User::factory()->worker()->create(['must_change_password' => true]));
 
         $this->assertNotSame(403, $this->livewireUpdate('auth.change-password')->getStatusCode());
     }

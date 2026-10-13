@@ -27,11 +27,11 @@ class IdleTimeoutTest extends TestCase
     {
         $user = User::factory()->{$role}()->create();
 
-        $this->actingAs($user)->get(route('dashboard'))->assertOk();
+        $this->actingAs($user)->get(route('clock'))->assertOk();
 
         $this->travel(31)->minutes();
 
-        $this->get(route('dashboard'))->assertRedirect(route('login'));
+        $this->get(route('clock'))->assertRedirect(route('login'));
         $this->assertGuest();
     }
 
@@ -39,13 +39,13 @@ class IdleTimeoutTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
 
-        $this->actingAs($admin)->get(route('dashboard'))->assertOk();
+        $this->actingAs($admin)->get(route('clock'))->assertOk();
 
         $this->travel(20)->minutes();
-        $this->get(route('dashboard'))->assertOk();
+        $this->get(route('clock'))->assertOk();
 
         $this->travel(20)->minutes();
-        $this->get(route('dashboard'))->assertOk();
+        $this->get(route('clock'))->assertOk();
         $this->assertAuthenticatedAs($admin);
     }
 
@@ -53,11 +53,11 @@ class IdleTimeoutTest extends TestCase
     {
         $worker = User::factory()->worker()->create();
 
-        $this->actingAs($worker)->get(route('dashboard'))->assertOk();
+        $this->actingAs($worker)->get(route('clock'))->assertOk();
 
         $this->travel(31)->minutes();
 
-        $this->get(route('dashboard'))->assertOk();
+        $this->get(route('clock'))->assertOk();
         $this->assertAuthenticatedAs($worker);
     }
 
@@ -66,7 +66,7 @@ class IdleTimeoutTest extends TestCase
         $admin = User::factory()->admin()->create();
 
         $this->comeBackLaterWithTheRememberCookie($admin)
-            ->get(route('dashboard'))
+            ->get(route('clock'))
             ->assertRedirect(route('login'));
 
         $this->assertGuest();
@@ -77,7 +77,7 @@ class IdleTimeoutTest extends TestCase
         $worker = User::factory()->worker()->create();
 
         $this->comeBackLaterWithTheRememberCookie($worker)
-            ->get(route('dashboard'))
+            ->get(route('clock'))
             ->assertOk();
 
         $this->assertAuthenticatedAs($worker);
@@ -87,7 +87,7 @@ class IdleTimeoutTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
 
-        $this->actingAs($admin)->get(route('dashboard'))->assertOk();
+        $this->actingAs($admin)->get(route('clock'))->assertOk();
 
         $this->travel(31)->minutes();
 

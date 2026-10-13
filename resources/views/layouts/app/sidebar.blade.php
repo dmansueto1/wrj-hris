@@ -6,20 +6,26 @@
     <body class="min-h-screen bg-brand-page text-brand-text">
         <flux:sidebar sticky collapsible="mobile" class="dark border-e border-brand-navy bg-brand-navy">
             <flux:sidebar.header>
-                <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+                <x-app-logo :sidebar="true" href="{{ route('clock') }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Platform')" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
+                {{-- Only the items the user has permission for (App\Support\Navigation). --}}
+                @foreach (\App\Support\Navigation::for(auth()->user()) as $item)
+                    <flux:sidebar.item
+                        :icon="$item['icon']"
+                        :href="route($item['route'])"
+                        :current="request()->routeIs($item['route'])"
+                        data-test="nav-{{ $item['route'] }}"
+                        wire:navigate
+                    >
+                        {{ __($item['label']) }}
                     </flux:sidebar.item>
-                </flux:sidebar.group>
+                @endforeach
             </flux:sidebar.nav>
 
             <flux:spacer />
-
 
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
@@ -39,17 +45,7 @@
                 <flux:menu>
                     <flux:menu.radio.group>
                         <div class="p-0 text-sm font-normal">
-                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                                <flux:avatar
-                                    :name="auth()->user()->name"
-                                    :initials="auth()->user()->initials()"
-                                />
-
-                                <div class="grid flex-1 text-start text-sm leading-tight">
-                                    <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                                    <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
-                                </div>
-                            </div>
+                            <x-user-menu-details />
                         </div>
                     </flux:menu.radio.group>
 

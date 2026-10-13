@@ -122,6 +122,14 @@ class User extends Authenticatable
     }
 
     /**
+     * The user's role for display, e.g. "Staff". Empty when no role is assigned.
+     */
+    public function roleLabel(): string
+    {
+        return ucfirst((string) $this->getRoleNames()->first());
+    }
+
+    /**
      * Get the user's initials
      */
     public function initials(): string
