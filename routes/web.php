@@ -1,7 +1,9 @@
 <?php
 
 use App\Livewire\Auth\ChangePassword;
+use App\Livewire\Projects;
 use App\Livewire\Users;
+use App\Models\Project;
 use App\Support\Navigation;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +26,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $route->middleware([Navigation::middlewareFor($item['route']), ...($item['middleware'] ?? [])])
             ->name($item['route']);
     }
+
+    // Projects masterfile (T-07). Add/edit are Admin only; "create" is registered before {project}.
+    Route::middleware('permission:projects.manage')->group(function () {
+        Route::livewire('projects/create', Projects\Create::class)->name('projects.create');
+        Route::livewire('projects/{project}/edit', Projects\Edit::class)->name('projects.edit');
+    });
+
+    // Project page: placeholder until T-16 adds running expenses.
+    Route::get('projects/{project}', fn (Project $project) => view('placeholder', ['title' => $project->name]))
+        ->middleware(Navigation::middlewareFor('projects.index'))
+        ->name('projects.show');
 
     // Users masterfile (T-06): add and edit screens, same protection as the list.
     Route::middleware([Navigation::middlewareFor('users.index'), 'password.confirm'])->group(function () {

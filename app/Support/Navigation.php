@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Livewire\Projects;
 use App\Livewire\Users;
 use App\Models\User;
 use InvalidArgumentException;
@@ -21,7 +22,7 @@ class Navigation
             ['label' => 'Clock In/Out', 'url' => 'clock', 'route' => 'clock', 'icon' => 'clock', 'permissions' => ['attendance.clock']],
             ['label' => 'My Attendance', 'url' => 'attendance/mine', 'route' => 'attendance.mine', 'icon' => 'calendar-days', 'permissions' => ['attendance.view-own']],
             ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all']],
-            ['label' => 'Projects', 'url' => 'projects', 'route' => 'projects.index', 'icon' => 'building-office-2', 'permissions' => ['expenses.view', 'projects.manage']],
+            ['label' => 'Projects', 'url' => 'projects', 'route' => 'projects.index', 'icon' => 'building-office-2', 'permissions' => ['expenses.view', 'projects.manage'], 'component' => Projects\Index::class],
             ['label' => 'Material Entries', 'url' => 'material-entries', 'route' => 'material-entries.index', 'icon' => 'shopping-cart', 'permissions' => ['material-entries.create']],
             ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'icon' => 'cube', 'permissions' => ['materials.manage']],
             ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'icon' => 'users', 'permissions' => ['users.manage'], 'component' => Users\Index::class, 'middleware' => ['password.confirm']],
