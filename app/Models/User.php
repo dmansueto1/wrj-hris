@@ -51,6 +51,8 @@ class User extends Authenticatable
 
     public const STATUS_INACTIVE = 'inactive';
 
+    public const ROLES = ['admin', 'staff', 'worker'];
+
     /**
      * The model's default values for attributes.
      *

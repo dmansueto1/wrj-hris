@@ -8,7 +8,7 @@
 **Build**
 
 - `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), sessions grouped by day with project, in, out, hours and status, plus daily and range total hours. Workers do not see peso amounts.
-- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, status; a totals row for hours and labor cost; 50 per page.
+- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, status; a totals row for hours and labor cost; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Status badges: open blue, closed green, adjusted purple, flagged red, void gray (struck through).
 
 **Acceptance criteria**

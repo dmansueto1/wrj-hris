@@ -109,4 +109,16 @@ class ProfileUpdateTest extends TestCase
 
         $this->assertNotNull($user->fresh());
     }
+
+    public function testTheProfilePageShowsTheUsersOwnUsernameReadOnly(): void
+    {
+        $this->actingAs(User::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']));
+
+        $html = $this->get(route('profile.edit'))->assertOk()->getContent();
+
+        preg_match('/<input[^>]*data-test="username-field"[^>]*>/', $html, $match);
+        $this->assertNotEmpty($match, 'The username field should be on the profile page.');
+        $this->assertStringContainsString('value="msantos"', $match[0]);
+        $this->assertStringContainsString('readonly', $match[0]);
+    }
 }

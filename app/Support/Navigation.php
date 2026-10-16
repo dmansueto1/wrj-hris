@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Livewire\Users;
 use App\Models\User;
 use InvalidArgumentException;
 
@@ -9,9 +10,10 @@ class Navigation
 {
     /**
      * Main menu, in display order. A user sees an item when they have any of its permissions.
-     * routes/web.php registers one route per item from this list.
+     * routes/web.php registers one route per item from this list: the Livewire `component` when
+     * the page is built, otherwise a placeholder. `middleware` adds route middleware (e.g. password.confirm).
      *
-     * @return list<array{label: string, url: string, route: string, icon: string, permissions: list<string>}>
+     * @return list<array{label: string, url: string, route: string, icon: string, permissions: list<string>, component?: class-string, middleware?: list<string>}>
      */
     public static function items(): array
     {
@@ -22,7 +24,7 @@ class Navigation
             ['label' => 'Projects', 'url' => 'projects', 'route' => 'projects.index', 'icon' => 'building-office-2', 'permissions' => ['expenses.view', 'projects.manage']],
             ['label' => 'Material Entries', 'url' => 'material-entries', 'route' => 'material-entries.index', 'icon' => 'shopping-cart', 'permissions' => ['material-entries.create']],
             ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'icon' => 'cube', 'permissions' => ['materials.manage']],
-            ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'icon' => 'users', 'permissions' => ['users.manage']],
+            ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'icon' => 'users', 'permissions' => ['users.manage'], 'component' => Users\Index::class, 'middleware' => ['password.confirm']],
             ['label' => 'Reports', 'url' => 'reports', 'route' => 'reports.index', 'icon' => 'document-chart-bar', 'permissions' => ['reports.export']],
         ];
     }
@@ -30,7 +32,7 @@ class Navigation
     /**
      * The menu items the given user may see.
      *
-     * @return list<array{label: string, url: string, route: string, icon: string, permissions: list<string>}>
+     * @return list<array{label: string, url: string, route: string, icon: string, permissions: list<string>, component?: class-string, middleware?: list<string>}>
      */
     public static function for(User $user): array
     {

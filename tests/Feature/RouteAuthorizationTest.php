@@ -34,7 +34,9 @@ class RouteAuthorizationTest extends TestCase
     public function testEachRoleCanOnlyOpenItsAllowedPages(string $url, int $admin, int $staff, int $worker): void
     {
         foreach (['admin' => $admin, 'staff' => $staff, 'worker' => $worker] as $role => $status) {
+            // A recent password confirmation, so password.confirm (on /users) does not redirect.
             $this->actingAs(User::factory()->{$role}()->create())
+                ->withSession(['auth.password_confirmed_at' => time()])
                 ->get($url)
                 ->assertStatus($status);
         }
@@ -43,7 +45,10 @@ class RouteAuthorizationTest extends TestCase
     public function testAWorkerTypingTheUsersUrlGets403AndAdminGets200(): void
     {
         $this->actingAs(User::factory()->worker()->create())->get('/users')->assertForbidden();
-        $this->actingAs(User::factory()->admin()->create())->get('/users')->assertOk();
+        $this->actingAs(User::factory()->admin()->create())
+            ->withSession(['auth.password_confirmed_at' => time()])
+            ->get('/users')
+            ->assertOk();
     }
 
     /**

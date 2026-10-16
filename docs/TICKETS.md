@@ -32,6 +32,7 @@ When finished, list every file you created or changed.
 
 - Laravel with the Livewire starter kit; build screens with the Livewire and Flux UI patterns already used in the starter kit.
 - Livewire components are class-based, never single-file (`⚡*.blade.php`): the class (properties, attributes such as `#[Title]`/`#[Layout]`, actions, `render()`) goes in `app/Livewire/<Area>/<Name>.php`, and its view in `resources/views/livewire/<area>/<name>.blade.php` holds only the markup and fields. Route with `Route::livewire('url', Name::class)`, embed with `<livewire:area.name />`, test with `Livewire::test(Name::class)`.
+- Every table is paginated with a "Rows per page" choice of 10 / 25 / 50 / 100, default 10 (`App\Support\Pagination`). In the Livewire component `use App\Livewire\Concerns\WithPerPage;` and `->paginate($this->perPage())`; under the table render `<x-table-footer :paginator="…" />` (rows-per-page select + page links). Do not pass `:paginate` to `<flux:table>`.
 - Business logic lives in `app/Services` or `app/Support`, never in Livewire components or controllers.
 - Money and hours are stored as `DECIMAL(…, 2)`. Calculations use whole centavos (integers) with half-up rounding; never use floats for money.
 - Timezone `Asia/Manila`. Currency shown as `₱ 1,234.56`.
@@ -254,7 +255,7 @@ These three tickets give the Admin (and Staff, for materials) the screens to man
 
 **Build**
 
-- `/users` list (permission `users.manage`, behind `password.confirm`): columns employee no., name, username, role, position, hourly rate, status; search by name, username or employee no.; filter by role and status; 20 per page.
+- `/users` list (permission `users.manage`, behind `password.confirm`): columns employee no., name, username, role, position, hourly rate, status; search by name, username or employee no.; filter by role and status; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Create form: employee no., first name, last name, email (optional), role, position, hourly rate, temporary password. The username is generated (see T-03) and shown after saving. New users get `must_change_password = true`.
 - Edit form: same fields except password. A changed hourly rate goes through `UserRateService::changeRate`.
 - Rate history table on the edit page: rate, effective from, changed by.
@@ -412,7 +413,7 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
 **Build**
 
 - `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), sessions grouped by day with project, in, out, hours and status, plus daily and range total hours. Workers do not see peso amounts.
-- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, status; a totals row for hours and labor cost; 50 per page.
+- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, status; a totals row for hours and labor cost; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Status badges: open blue, closed green, adjusted purple, flagged red, void gray (struck through).
 
 **Acceptance criteria**
@@ -528,7 +529,7 @@ These tickets add material costs with the 20% markup and bring labor and materia
 
 **Build**
 
-- `/material-entries` (permission `material-entries.create`): list with filters for project, material and date range; columns date, project, material, quantity + unit, unit price, subtotal, markup, total, entered by; totals row; 50 per page.
+- `/material-entries` (permission `material-entries.create`): list with filters for project, material and date range; columns date, project, material, quantity + unit, unit price, subtotal, markup, total, entered by; totals row; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Create form: entry date (default today, no future dates), project (Ongoing and On hold only), material (active only; selecting it fills unit price with the default price, still editable), quantity (more than 0), unit price (0 or more), remarks.
 - Live preview below the form, computed on the server with `MaterialCost`: subtotal, markup (20%), total.
 - Editing and archiving: Admin can change any entry; Staff can change only their own entries made today.

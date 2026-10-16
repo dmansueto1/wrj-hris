@@ -7,7 +7,7 @@
 
 **Build**
 
-- `/material-entries` (permission `material-entries.create`): list with filters for project, material and date range; columns date, project, material, quantity + unit, unit price, subtotal, markup, total, entered by; totals row; 50 per page.
+- `/material-entries` (permission `material-entries.create`): list with filters for project, material and date range; columns date, project, material, quantity + unit, unit price, subtotal, markup, total, entered by; totals row; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Create form: entry date (default today, no future dates), project (Ongoing and On hold only), material (active only; selecting it fills unit price with the default price, still editable), quantity (more than 0), unit price (0 or more), remarks.
 - Live preview below the form, computed on the server with `MaterialCost`: subtotal, markup (20%), total.
 - Editing and archiving: Admin can change any entry; Staff can change only their own entries made today.

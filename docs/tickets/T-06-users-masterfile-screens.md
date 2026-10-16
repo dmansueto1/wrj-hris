@@ -7,7 +7,7 @@
 
 **Build**
 
-- `/users` list (permission `users.manage`, behind `password.confirm`): columns employee no., name, username, role, position, hourly rate, status; search by name, username or employee no.; filter by role and status; 20 per page.
+- `/users` list (permission `users.manage`, behind `password.confirm`): columns employee no., name, username, role, position, hourly rate, status; search by name, username or employee no.; filter by role and status; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Create form: employee no., first name, last name, email (optional), role, position, hourly rate, temporary password. The username is generated (see T-03) and shown after saving. New users get `must_change_password = true`.
 - Edit form: same fields except password. A changed hourly rate goes through `UserRateService::changeRate`.
 - Rate history table on the edit page: rate, effective from, changed by.

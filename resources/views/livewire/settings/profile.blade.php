@@ -7,6 +7,18 @@
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
             <flux:input :value="auth()->user()->name" :label="__('Name')" type="text" readonly disabled />
 
+            <flux:field>
+                <flux:label>
+                    {{ __('Username') }}
+                    <span class="ms-1 text-xs font-normal text-zinc-500">({{ __('you log in with this; ask the administrator to change it') }})</span>
+                </flux:label>
+                <flux:input
+                    :value="auth()->user()->username"
+                    readonly
+                    data-test="username-field"
+                />
+            </flux:field>
+
             <div>
                 <flux:input wire:model="email" :label="__('Email (optional)')" type="email" autocomplete="email" />
 
