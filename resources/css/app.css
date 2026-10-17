@@ -31,7 +31,27 @@
     --color-brand-tint: #E8F1FA;       /* selected rows, soft backgrounds */
     --color-brand-page: #F4F6F9;       /* page background */
     --color-brand-text: #1F2937;       /* body text */
-    --color-brand-gold: #F2A900;       /* accent, use sparingly (badges, flags) */
+    --color-brand-gold: #F2A900;       /* construction amber: active states, key CTAs, highlights */
+    --color-brand-orange: #EA580C;     /* amber hover / pressed */
+
+    /* Semantic colors, each with a soft tint for backgrounds (badges, stat icons, callouts). */
+    --color-success: #15803D;
+    --color-success-soft: #DCFCE7;
+    --color-warning: #B45309;
+    --color-warning-soft: #FEF3C7;
+    --color-danger: #B91C1C;
+    --color-danger-soft: #FEE2E2;
+    --color-info: #1A5BA6;
+    --color-info-soft: #E8F1FA;
+    --color-neutral: #475569;
+    --color-neutral-soft: #F1F5F9;
+    --color-indigo: #4338CA;
+    --color-indigo-soft: #E0E7FF;
+
+    /* Shape and depth. */
+    --radius-card: 0.875rem;                                                   /* rounded-card (14px) */
+    --shadow-card: 0 1px 2px 0 rgb(11 26 46 / 0.05), 0 1px 3px 0 rgb(11 26 46 / 0.06);
+    --shadow-card-hover: 0 4px 6px -1px rgb(11 26 46 / 0.08), 0 10px 20px -6px rgb(11 26 46 / 0.12);
 
     /* Flux reads its accent from these. */
     --color-accent: var(--color-brand-blue);
@@ -80,4 +100,82 @@ select:focus[data-flux-control] {
 /* Primary buttons darken to the brand hover blue. */
 [data-flux-button][class*="bg-[var(--color-accent)]"]:hover {
     background-color: var(--color-brand-blue-dark);
+}
+
+/* Amber call-to-action button for the one key action on a page (Add user, Clock In). */
+[data-flux-button].btn-accent {
+    background-color: var(--color-brand-gold);
+    color: var(--color-brand-navy);
+    border-color: transparent;
+}
+
+[data-flux-button].btn-accent:hover {
+    background-color: var(--color-brand-orange);
+    color: var(--color-white);
+}
+
+/* Faint blueprint grid behind page headers. */
+.bg-blueprint {
+    background-color: var(--color-white);
+    background-image:
+        linear-gradient(to right, rgb(26 91 166 / 0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgb(26 91 166 / 0.06) 1px, transparent 1px),
+        radial-gradient(circle at 100% 0%, rgb(242 169 0 / 0.12), transparent 45%);
+    background-size: 24px 24px, 24px 24px, 100% 100%;
+}
+
+/* Tables: small uppercase headers, tabular numbers, row hover. */
+[data-flux-table] th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-neutral);
+}
+
+[data-flux-table] td {
+    font-variant-numeric: tabular-nums;
+}
+
+[data-flux-table] tbody tr {
+    transition: background-color 150ms ease;
+}
+
+[data-flux-table] tbody tr:hover {
+    background-color: rgb(232 241 250 / 0.6);
+}
+
+/* Sidebar: amber bar and tint on the current page. */
+[data-flux-sidebar-item][data-current] {
+    background-color: rgb(242 169 0 / 0.12) !important;
+    border-color: transparent !important;
+    color: var(--color-white) !important;
+    box-shadow: inset 3px 0 0 0 var(--color-brand-gold);
+}
+
+[data-flux-sidebar-item][data-current] [data-flux-icon] {
+    color: var(--color-brand-gold);
+}
+
+[data-flux-sidebar-item] {
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+/* Visible keyboard focus everywhere. */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--color-brand-blue-light);
+    outline-offset: 2px;
+}
+
+/* Respect reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

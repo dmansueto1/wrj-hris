@@ -113,4 +113,85 @@ class UsersIndexTest extends TestCase
 
         Livewire::test(Index::class)->assertForbidden();
     }
+
+    public function testTheStatCardsCountUsersByStatusAndRole(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+        User::factory()->worker()->count(3)->create();
+        User::factory()->worker()->inactive()->create();
+        User::factory()->staff()->create();
+        User::factory()->worker()->create()->delete();
+
+        Livewire::test(Index::class)->assertSet('summary', [
+            'total' => 6,
+            'active' => 5,
+            'inactive' => 1,
+            'roles' => ['admin' => 1, 'staff' => 1, 'worker' => 4],
+        ]);
+    }
+
+    public function testActiveFiltersShowAsChipsAndCanBeCleared(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        Livewire::test(Index::class)
+            ->assertDontSeeHtml('data-test="active-filters"')
+            ->set('search', 'juan')
+            ->set('role', 'worker')
+            ->assertSeeHtml('data-test="active-filters"')
+            ->assertSee('Search: juan')
+            ->assertSee('Role: Worker')
+            ->call('clearFilters')
+            ->assertSet('search', '')
+            ->assertSet('role', '')
+            ->assertSet('status', '')
+            ->assertDontSeeHtml('data-test="active-filters"');
+    }
+
+    public function testAnEmptySearchShowsAFriendlyEmptyState(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        Livewire::test(Index::class)
+            ->set('search', 'nobody-matches-this')
+            ->assertSee('No users match your search.')
+            ->assertSee('Clear filters');
+    }
+
+    public function testAdminDeactivatesAndReactivatesAUserFromTheList(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+        $worker = User::factory()->worker()->create();
+
+        Livewire::test(Index::class)->call('deactivate', $worker->id);
+        $this->assertSame(User::STATUS_INACTIVE, $worker->fresh()->status);
+
+        Livewire::test(Index::class)->call('reactivate', $worker->id);
+        $this->assertSame(User::STATUS_ACTIVE, $worker->fresh()->status);
+    }
+
+    public function testAdminCannotDeactivateThemselvesFromTheList(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin);
+
+        Livewire::test(Index::class)
+            ->assertDontSeeHtml('wire:click="deactivate('.$admin->id.')"')
+            ->call('deactivate', $admin->id);
+
+        $this->assertSame(User::STATUS_ACTIVE, $admin->fresh()->status);
+    }
+
+    public function testStaffCannotDeactivateFromTheList(): void
+    {
+        $worker = User::factory()->worker()->create();
+        $this->actingAs(User::factory()->admin()->create());
+        $list = Livewire::test(Index::class);
+
+        // The permission is re-checked on every request, so losing it mid-session blocks the action.
+        $this->actingAs(User::factory()->staff()->create());
+        $list->call('deactivate', $worker->id)->assertForbidden();
+
+        $this->assertSame(User::STATUS_ACTIVE, $worker->fresh()->status);
+    }
 }

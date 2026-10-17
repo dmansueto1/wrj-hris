@@ -25,6 +25,10 @@ class Index extends Component
     #[Url(except: '')]
     public string $status = '';
 
+    /** "grid" (cards) or "table". */
+    #[Url(except: 'grid')]
+    public string $view = 'grid';
+
     /**
      * Runs on every request. Admin (projects.manage) and Staff (expenses.view) may see the list.
      */
@@ -40,14 +44,31 @@ class Index extends Component
         }
     }
 
+    public function clearFilters(): void
+    {
+        $this->reset('search', 'status');
+        $this->resetPage();
+    }
+
     public function archive(int $projectId, ProjectService $projects): void
     {
         abort_unless($this->canManage(), 403);
 
         $projects->archive(Project::findOrFail($projectId));
 
-        unset($this->projects);
+        unset($this->projects, $this->summary);
         Flux::toast(text: __('Project archived.'));
+    }
+
+    /**
+     * Counts for the stat cards.
+     *
+     * @return array{total: int, statuses: array<string, int>}
+     */
+    #[Computed]
+    public function summary(): array
+    {
+        return app(ProjectService::class)->summary();
     }
 
     /**
@@ -75,6 +96,8 @@ class Index extends Component
         return view('livewire.projects.index', [
             'statuses' => Project::STATUSES,
             'canManage' => $this->canManage(),
+            'hasFilters' => trim($this->search) !== '' || $this->status !== '',
+            'view' => $this->view === 'table' ? 'table' : 'grid',
         ]);
     }
 

@@ -27,6 +27,23 @@ class ProjectService
     }
 
     /**
+     * Counts for the stat cards above the projects list (archived projects excluded).
+     *
+     * @return array{total: int, statuses: array<string, int>}
+     */
+    public function summary(): array
+    {
+        $byStatus = Project::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+
+        $statuses = [];
+        foreach (array_keys(Project::STATUSES) as $status) {
+            $statuses[$status] = (int) ($byStatus[$status] ?? 0);
+        }
+
+        return ['total' => array_sum($statuses), 'statuses' => $statuses];
+    }
+
+    /**
      * Archive (soft-delete) the project. Its attendance and material records stay intact.
      */
     public function archive(Project $project): void

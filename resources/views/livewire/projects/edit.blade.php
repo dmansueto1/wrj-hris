@@ -1,16 +1,16 @@
 <div class="flex w-full flex-col gap-6">
-    <div>
-        <flux:link :href="route('projects.index')" wire:navigate class="text-sm">&larr; {{ __('Back to projects') }}</flux:link>
+    <x-page-header
+        :title="$project->code.' · '.$project->name"
+        :description="__('Workers can only clock in to projects with status Ongoing.')"
+        :back="route('projects.index')"
+        :back-label="__('Back to projects')"
+    >
+        <x-slot:badge>
+            <x-status-badge :color="$project->statusColor()">{{ __($project->statusLabel()) }}</x-status-badge>
+        </x-slot:badge>
+    </x-page-header>
 
-        <div class="mt-2 flex flex-wrap items-center gap-3">
-            <flux:heading size="xl" level="1">{{ $project->code }} &middot; {{ $project->name }}</flux:heading>
-            <flux:badge size="sm" :color="$project->statusColor()">{{ __($project->statusLabel()) }}</flux:badge>
-        </div>
-
-        <flux:subheading>{{ __('Workers can only clock in to projects with status Ongoing.') }}</flux:subheading>
-    </div>
-
-    <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-zinc-200 bg-white p-6">
+    <form wire:submit="save" class="flex flex-col gap-6 rounded-card bg-white p-6 shadow-card ring-1 ring-brand-navy/5">
         @include('livewire.projects.partials.project-fields')
 
         <div class="flex justify-end gap-3">

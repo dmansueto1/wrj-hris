@@ -129,4 +129,51 @@ class ProjectsIndexTest extends TestCase
             ->get(route('projects.show', $project))
             ->assertForbidden();
     }
+
+    public function testTheStatCardsCountProjectsByStatus(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+        Project::factory()->ongoing()->count(2)->create();
+        Project::factory()->onHold()->create();
+        Project::factory()->planning()->create();
+        Project::factory()->completed()->create()->delete();
+
+        Livewire::test(Index::class)->assertSet('summary', [
+            'total' => 4,
+            'statuses' => ['planning' => 1, 'ongoing' => 2, 'on_hold' => 1, 'completed' => 0],
+        ]);
+    }
+
+    public function testTheListCanSwitchBetweenCardsAndTable(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+        Project::factory()->create(['code' => 'PRJ-001']);
+
+        Livewire::test(Index::class)
+            ->assertSet('view', 'grid')
+            ->assertSee('View project')
+            ->assertDontSeeHtml('<table')
+            ->set('view', 'table')
+            ->assertSeeHtml('<table')
+            ->assertSee('PRJ-001');
+    }
+
+    public function testFiltersShowAsChipsAndCanBeCleared(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        Livewire::test(Index::class)
+            ->set('status', Project::STATUS_ON_HOLD)
+            ->assertSee('Status: On hold')
+            ->call('clearFilters')
+            ->assertSet('status', '')
+            ->assertSet('search', '');
+    }
+
+    public function testAnEmptyListShowsTheEmptyState(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        Livewire::test(Index::class)->assertSee('No projects yet');
+    }
 }

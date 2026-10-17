@@ -85,6 +85,28 @@ class Project extends Model
         $query->where('status', self::STATUS_ONGOING);
     }
 
+    /**
+     * How much of the planned schedule has passed, 0–100, from the start and end dates.
+     * Null when either date is missing. Whole days only, no floating point.
+     */
+    public function scheduleProgress(?Carbon $today = null): ?int
+    {
+        if ($this->start_date === null || $this->end_date === null) {
+            return null;
+        }
+
+        $today = ($today ?? now())->startOfDay();
+        $totalDays = (int) $this->start_date->diffInDays($this->end_date);
+
+        if ($totalDays <= 0 || $today->lessThan($this->start_date)) {
+            return $today->lessThan($this->start_date) ? 0 : 100;
+        }
+
+        $elapsedDays = (int) $this->start_date->diffInDays(min($today, $this->end_date));
+
+        return intdiv($elapsedDays * 100, $totalDays);
+    }
+
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status][0] ?? ucfirst($this->status);

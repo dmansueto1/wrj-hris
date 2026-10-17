@@ -1,24 +1,23 @@
 <div class="flex w-full flex-col gap-6">
-    <div>
-        <flux:link :href="route('users.index')" wire:navigate class="text-sm">&larr; {{ __('Back to users') }}</flux:link>
-
-        <div class="mt-2 flex flex-wrap items-center gap-3">
-            <flux:heading size="xl" level="1">{{ $user->name }}</flux:heading>
-
-            @if ($user->status === \App\Models\User::STATUS_ACTIVE)
-                <flux:badge size="sm" color="green">{{ __('Active') }}</flux:badge>
-            @else
-                <flux:badge size="sm" color="zinc">{{ __('Inactive') }}</flux:badge>
-            @endif
-        </div>
-
-    </div>
+    <x-page-header
+        :title="$user->name"
+        :description="__(':role · :employee_no', ['role' => $user->roleLabel() ?: __('No role'), 'employee_no' => $user->employee_no])"
+        :back="route('users.index')"
+        :back-label="__('Back to users')"
+    >
+        <x-slot:badge>
+            @include('livewire.users.partials.status-badge', ['user' => $user])
+        </x-slot:badge>
+        <x-slot:actions>
+            <x-avatar :name="$user->name" :initials="$user->initials()" size="lg" />
+        </x-slot:actions>
+    </x-page-header>
 
     @error('status')
         <flux:callout variant="danger" icon="exclamation-circle" :heading="$message" />
     @enderror
 
-    <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-zinc-200 bg-white p-6">
+    <form wire:submit="save" class="flex flex-col gap-6 rounded-card bg-white p-6 shadow-card ring-1 ring-brand-navy/5">
         <flux:heading size="lg" level="2">{{ __('Details') }}</flux:heading>
 
         @include('livewire.users.partials.user-fields')
@@ -28,7 +27,7 @@
         </div>
     </form>
 
-    <section class="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-6">
+    <section class="flex flex-col gap-4 rounded-card bg-white p-6 shadow-card ring-1 ring-brand-navy/5">
         <flux:heading size="lg" level="2">{{ __('Rate history') }}</flux:heading>
 
         <flux:table>
@@ -52,7 +51,7 @@
         <x-table-footer :paginator="$this->rateHistories" />
     </section>
 
-    <section class="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-6">
+    <section class="flex flex-col gap-4 rounded-card bg-white p-6 shadow-card ring-1 ring-brand-navy/5">
         <flux:heading size="lg" level="2">{{ __('Account actions') }}</flux:heading>
 
         <div class="flex flex-wrap gap-3">

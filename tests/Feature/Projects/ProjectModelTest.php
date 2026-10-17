@@ -5,6 +5,7 @@ namespace Tests\Feature\Projects;
 use App\Models\Project;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ProjectModelTest extends TestCase
@@ -73,5 +74,22 @@ class ProjectModelTest extends TestCase
         $this->assertSame(['Ongoing', 'green'], [Project::factory()->ongoing()->make()->statusLabel(), Project::factory()->ongoing()->make()->statusColor()]);
         $this->assertSame(['On hold', 'amber'], [Project::factory()->onHold()->make()->statusLabel(), Project::factory()->onHold()->make()->statusColor()]);
         $this->assertSame(['Completed', 'blue'], [Project::factory()->completed()->make()->statusLabel(), Project::factory()->completed()->make()->statusColor()]);
+    }
+
+    public function testScheduleProgressIsTheShareOfThePlannedDaysThatHavePassed(): void
+    {
+        $project = Project::factory()->make(['start_date' => '2026-01-01', 'end_date' => '2026-01-11']);
+
+        $this->assertSame(0, $project->scheduleProgress(Carbon::parse('2025-12-25')));
+        $this->assertSame(0, $project->scheduleProgress(Carbon::parse('2026-01-01')));
+        $this->assertSame(30, $project->scheduleProgress(Carbon::parse('2026-01-04 15:00')));
+        $this->assertSame(100, $project->scheduleProgress(Carbon::parse('2026-01-11')));
+        $this->assertSame(100, $project->scheduleProgress(Carbon::parse('2026-03-01')));
+    }
+
+    public function testScheduleProgressIsNullWithoutBothDates(): void
+    {
+        $this->assertNull(Project::factory()->make(['start_date' => null])->scheduleProgress());
+        $this->assertNull(Project::factory()->make(['end_date' => null])->scheduleProgress());
     }
 }

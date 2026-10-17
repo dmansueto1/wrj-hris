@@ -1,11 +1,12 @@
 <div class="flex w-full flex-col gap-6">
-    <div>
-        <flux:link :href="route('users.index')" wire:navigate class="text-sm">&larr; {{ __('Back to users') }}</flux:link>
-        <flux:heading size="xl" level="1" class="mt-2">{{ __('Add user') }}</flux:heading>
-        <flux:subheading>{{ __('The username is created from the first and last name when you save.') }}</flux:subheading>
-    </div>
+    <x-page-header
+        :title="__('Add user')"
+        :description="__('The username is created from the first and last name when you save.')"
+        :back="route('users.index')"
+        :back-label="__('Back to users')"
+    />
 
-    <form wire:submit="save" class="flex flex-col gap-6 rounded-xl border border-zinc-200 bg-white p-6">
+    <form wire:submit="save" class="flex flex-col gap-6 rounded-card bg-white p-6 shadow-card ring-1 ring-brand-navy/5">
         @include('livewire.users.partials.user-fields')
 
         <flux:input
@@ -20,7 +21,7 @@
 
         <div class="flex justify-end gap-3">
             <flux:button :href="route('users.index')" wire:navigate>{{ __('Cancel') }}</flux:button>
-            <flux:button variant="primary" type="submit" data-test="save-user-button">{{ __('Save user') }}</flux:button>
+            <flux:button type="submit" class="btn-accent" data-test="save-user-button">{{ __('Save user') }}</flux:button>
         </div>
     </form>
 </div>

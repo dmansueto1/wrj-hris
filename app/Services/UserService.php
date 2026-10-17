@@ -65,6 +65,28 @@ class UserService
         });
     }
 
+    /**
+     * Counts for the stat cards above the users list (archived users excluded).
+     *
+     * @return array{total: int, active: int, inactive: int, roles: array<string, int>}
+     */
+    public function summary(): array
+    {
+        $byStatus = User::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+
+        $roles = [];
+        foreach (User::ROLES as $role) {
+            $roles[$role] = User::role($role)->count();
+        }
+
+        return [
+            'total' => (int) $byStatus->sum(),
+            'active' => (int) ($byStatus[User::STATUS_ACTIVE] ?? 0),
+            'inactive' => (int) ($byStatus[User::STATUS_INACTIVE] ?? 0),
+            'roles' => $roles,
+        ];
+    }
+
     public function deactivate(User $user, User $editor): void
     {
         $this->guardAgainstSelf($user, $editor, __('You cannot deactivate your own account.'));
