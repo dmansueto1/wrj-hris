@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Support\Money;
 use Database\Factories\ProjectFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -73,6 +75,25 @@ class Project extends Model
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
         ];
+    }
+
+    /**
+     * @return HasMany<Attendance, $this>
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    /**
+     * Total labor cost of the project's counted sessions (closed or adjusted), e.g. "720.00".
+     * Summed by the database on DECIMAL values, then normalized through centavos.
+     */
+    public function laborTotal(): string
+    {
+        $sum = $this->attendances()->counted()->sum('labor_cost');
+
+        return Money::fromCentavos(Money::toCentavos((string) ($sum ?: '0')));
     }
 
     /**

@@ -40,4 +40,40 @@ class MoneyTest extends TestCase
 
         Money::format('12abc');
     }
+
+    /**
+     * @return array<string, array{string, int}>
+     */
+    public static function centavos(): array
+    {
+        return [
+            'two decimals' => ['80.00', 8000],
+            'one decimal' => ['95.5', 9550],
+            'whole pesos' => ['360', 36000],
+            'zero' => ['0', 0],
+            'small' => ['0.07', 7],
+            'large' => ['1234567.89', 123456789],
+        ];
+    }
+
+    #[DataProvider('centavos')]
+    public function testToCentavos(string $amount, int $expected): void
+    {
+        $this->assertSame($expected, Money::toCentavos($amount));
+    }
+
+    public function testFromCentavos(): void
+    {
+        $this->assertSame('346.67', Money::fromCentavos(34667));
+        $this->assertSame('0.00', Money::fromCentavos(0));
+        $this->assertSame('0.07', Money::fromCentavos(7));
+        $this->assertSame('1234567.89', Money::fromCentavos(123456789));
+    }
+
+    public function testToCentavosRejectsMoreThanTwoDecimals(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Money::toCentavos('1.234');
+    }
 }

@@ -116,6 +116,14 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasMany<Attendance, $this>
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    /**
      * @param  Builder<User>  $query
      */
     public function scopeActive(Builder $query): void
