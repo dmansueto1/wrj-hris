@@ -33,7 +33,7 @@ When finished, list every file you created or changed.
 - Laravel with the Livewire starter kit; build screens with the Livewire and Flux UI patterns already used in the starter kit.
 - Livewire components are class-based, never single-file (`⚡*.blade.php`): the class (properties, attributes such as `#[Title]`/`#[Layout]`, actions, `render()`) goes in `app/Livewire/<Area>/<Name>.php`, and its view in `resources/views/livewire/<area>/<name>.blade.php` holds only the markup and fields. Route with `Route::livewire('url', Name::class)`, embed with `<livewire:area.name />`, test with `Livewire::test(Name::class)`.
 - Every table is paginated with a "Rows per page" choice of 10 / 25 / 50 / 100, default 10 (`App\Support\Pagination`). In the Livewire component `use App\Livewire\Concerns\WithPerPage;` and `->paginate($this->perPage())`; under the table render `<x-table-footer :paginator="…" />` (rows-per-page select + page links). Do not pass `:paginate` to `<flux:table>`.
-- Page design (all authenticated pages; the login page is the brand reference and is not changed): start with `<x-page-header>` (title, one-line description, actions on the right; the one key action uses `class="btn-accent"`); list pages add a row of `<x-stat-card>`s, a filter toolbar card with `<x-filter-chip>`s and a "Clear filters" link, and the list inside `<x-data-card>` with `<x-empty-state>` when empty; people show `<x-avatar>`; statuses and roles use `<x-status-badge>`; tables get stacked cards on phones (`md:hidden`); per-row actions go in a `flux:dropdown` menu. Menu items carry a `group` (Time / Operations / Admin) in `App\Support\Navigation`.
+- Page design (all authenticated pages; the sign-in pages and the kiosk share the navy `bg-hero-blueprint` band, live greeting/clock and floating card): start with `<x-page-header>` (title, one-line description, actions on the right; the one key action uses `class="btn-accent"`); list pages add a row of `<x-stat-card>`s, a filter toolbar card with `<x-filter-chip>`s and a "Clear filters" link, and the list inside `<x-data-card>` with `<x-empty-state>` when empty; people show `<x-avatar>`; statuses and roles use `<x-status-badge>`; tables get stacked cards on phones (`md:hidden`); per-row actions go in a `flux:dropdown` menu. Menu items carry a `group` (Time / Operations / Admin) in `App\Support\Navigation`.
 - Wording on screen: never show the word "session" for attendance. One clock-in-to-clock-out period is a "duty"; its states are "On Duty" (clocked in, not yet out) and "Off Duty" (clocked out). Keep "Clock In" / "Clock Out" for the actions. Code and database names (`attendances`, `$session`, PRD wording) stay as they are.
 - Business logic lives in `app/Services` or `app/Support`, never in Livewire components or controllers.
 - Money and hours are stored as `DECIMAL(…, 2)`. Calculations use whole centavos (integers) with half-up rounding; never use floats for money.
@@ -386,12 +386,12 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
 **Build**
 
 - Livewire page at `/clock` (permission `attendance.clock`), the home page for everyone.
-- Not clocked in: a searchable dropdown of Ongoing projects (code + name) and a large "Clock In" button.
+- Not clocked in: a dropdown of Ongoing projects ("CODE · Name"; on phones the device's own picker scrolls, so many projects are fine) and a "Clock In" button.
 - Clocked in: the project name, clock-in time, a running elapsed time (Alpine, updates every minute) and a large "Clock Out" button with a confirm step.
 - After clock-out: a success message with start time, end time and hours.
 - "Today" panel: each of today's sessions (project, in, out, hours) and the total hours for the day.
 - Location: request browser geolocation on clock in/out; if denied or unavailable, continue without it.
-- Buttons are full width and at least 56 px tall on phones; disable them while saving (`wire:loading`).
+- Buttons are full width and 48 px tall (same as the kiosk); disable them while saving (`wire:loading`).
 - Show friendly messages for the service exceptions from T-09.
 
 **Acceptance criteria**
@@ -706,19 +706,20 @@ The last three tickets make every sensitive change traceable, give the client ex
 - New layout `resources/views/layouts/kiosk.blade.php`: full-screen, light theme, navy top bar with the WRJ88 logo (`<x-app-logo-icon />`), "Attendance Kiosk", today's date and a large live clock (Asia/Manila, Alpine, every second). No sidebar, no user menu.
 - `App\Services\KioskService` (business logic stays out of the component):
   - `verify(Request $request, string $username, string $password): User` — uses `LoginRateLimiter` (`tooManyAttempts` → throw with the `auth.lockout` message and minutes remaining; `increment` on a wrong password; `clear` on success) and `AuthenticateUser`; throws for wrong credentials (`auth.failed`), an inactive user (`auth.inactive`) and a user without `attendance.clock`. A user with `must_change_password = true` **may** use the kiosk.
-  - `recentDuties(int $limit = 10): Collection` — today's latest clock events across all users, newest first: one row per clock-in (`clock_in_at`, type "On Duty") and one per clock-out (`clock_out_at`, type "Off Duty") of non-void attendances with `work_date` = today; each row has the display name, project name, type and time.
+  - `recentDuties(int $limit = 10): Collection` — today's latest clock events across all users, newest first: one row per clock-in (`clock_in_at`, type "On Duty") and one per clock-out (`clock_out_at`, type "Off Duty") of non-void attendances, counting only events whose time is today (so an overnight duty's morning clock-out is listed even though its work_date is yesterday); each row has the display name, project name, type and time.
   - `displayName(User $user): string` — first name + last initial ("Juan D."), so the public screen does not show full names.
 - `App\Livewire\Attendance\Kiosk` + `resources/views/livewire/attendance/kiosk.blade.php`, a two-step flow:
   1. **Identify:** large Username and Password fields and a "Continue" button. On submit, call `KioskService::verify`. Errors show in the red callout above the fields (wrong credentials, lockout with minutes remaining, inactive). The password property is cleared immediately after every attempt, success or not.
   2. **Act:** show "Hi, Juan D." and the user's current state from `AttendanceService::openSessionFor`:
-     - not on duty → the Ongoing project picker (same UI as `/clock`) and a large amber **Clock In** button;
-     - on duty → the project, "On Duty since 7:00 AM" and a large red **Clock Out** button (no extra confirm step; the worker just verified with their password).
+     - not on duty → a dropdown of Ongoing projects ("CODE · Name"; the phone's own picker scrolls, so many projects are fine) and an amber **Clock In** button;
+     - on duty → the project, "On Duty since 7:00 AM" with a running timer, and a red **Clock Out** button (no extra confirm step; the worker just verified with their password).
      - A "Not you? Start over" link returns to step 1 and clears everything.
   - The verified user is kept only as a `#[Locked]` user ID plus a verified-at time; the Clock In/Out action re-checks that the ID is set and was verified less than 2 minutes ago, otherwise it returns to step 1 with "Please enter your username and password again."
   - Clock In/Out calls `AttendanceService::clockIn` / `clockOut` with the browser location (reuse the `locate()` helper). Rule violations (`AttendanceException`) show in the callout.
   - **Right after a successful clock in/out**, reset every field and the verified user, return to step 1, and show a toast ("Juan D. — On Duty at 7:02 AM" / "Juan D. — Off Duty at 11:30 AM"). The worker confirms through the live list.
 - Live duty list on the right (below the form on phones): heading "Today's duties", up to **10** rows from `KioskService::recentDuties(10)`, each with `<x-avatar>`, "Juan D.", an `<x-status-badge>` "On Duty" (green) or "Off Duty" (zinc), the project name and the time (`g:i A`). Refreshes with `wire:poll.10s` and immediately after the kiosk's own clock in/out; the newest row is highlighted for a few seconds. Empty state: "No one has clocked in yet today." Never show rates, hours, costs or employee numbers.
-- Phone and tablet layout: fields and buttons full width and at least 56 px tall; on tablet landscape and desktop the form is on the left and the live list on the right.
+- Phone and tablet layout: standard-size fields and full-width buttons 48 px tall (comfortable touch targets, not oversized); on tablet landscape and desktop the form is on the left and the live list on the right.
+- Look and feel ("alive"): navy hero band with a blueprint grid and gold line like the login page, a large live clock with a time-of-day greeting, a Sign in → Clock step indicator, a pulsing live dot and an "N on duty now" counter (`KioskService::onDutyCount()`), new rows sliding in; all motion respects reduced-motion.
 
 **Acceptance criteria**
 

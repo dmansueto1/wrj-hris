@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Attendance;
 use App\Livewire\Auth\ChangePassword;
 use App\Livewire\Materials;
 use App\Livewire\Projects;
@@ -11,6 +12,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return auth()->check() ? redirect()->route('clock') : redirect()->route('login');
 })->name('home');
+
+// Shared site kiosk (T-10.1): no login. Workers clock in/out with their username and password.
+Route::livewire('kiosk', Attendance\Kiosk::class)->name('kiosk');
 
 Route::livewire('password/change', ChangePassword::class)
     ->middleware('auth')

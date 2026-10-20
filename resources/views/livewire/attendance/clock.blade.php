@@ -1,34 +1,8 @@
 {{--
-    Clock In/Out (T-10). Built for one-handed use on a phone: full-width buttons at least 56px tall.
-    clock() asks the browser for the location (5 s limit), then calls the Livewire action with it,
-    or without it when location is denied or unavailable.
+    Clock In/Out (T-10). Built for one-handed use on a phone: full-width 48px buttons and a project dropdown, like the kiosk.
+    x-data="clockPad" (resources/js/app.js) gets the browser location, then calls the Livewire action.
 --}}
-<div
-    class="flex flex-col gap-6"
-    x-data="{
-        busy: false,
-        locate() {
-            return new Promise((resolve) => {
-                if (! navigator.geolocation) return resolve([null, null]);
-                navigator.geolocation.getCurrentPosition(
-                    (position) => resolve([position.coords.latitude, position.coords.longitude]),
-                    () => resolve([null, null]),
-                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 },
-                );
-            });
-        },
-        async clock(action) {
-            if (this.busy) return;
-            this.busy = true;
-            try {
-                const [lat, lng] = await this.locate();
-                await $wire.call(action, lat, lng);
-            } finally {
-                this.busy = false;
-            }
-        },
-    }"
->
+<div class="flex flex-col gap-6" x-data="clockPad">
     <x-page-header :title="__('Clock In/Out')" :description="now()->format('l, F j, Y')" />
 
     @error('clock')
@@ -46,7 +20,7 @@
         </flux:callout>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+    <div class="grid gap-6 lg:grid-cols-2">
         {{-- Hero: clock in or clock out --}}
         <section class="rounded-card bg-white p-5 shadow-card ring-1 ring-brand-navy/5 sm:p-7">
             @if ($this->openSession)
@@ -79,12 +53,12 @@
                     <flux:modal.trigger name="confirm-clock-out">
                         <button
                             type="button"
-                            class="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-danger px-6 text-lg font-semibold text-white shadow-card transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
+                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
                             wire:loading.attr="disabled"
                             x-bind:disabled="busy"
                             data-test="clock-out-button"
                         >
-                            <flux:icon icon="stop-circle" class="size-6" />
+                            <flux:icon icon="stop-circle" class="size-5" />
                             {{ __('Clock Out') }}
                         </button>
                     </flux:modal.trigger>
@@ -99,7 +73,7 @@
                         <div class="flex flex-col gap-3 sm:flex-row-reverse">
                             <button
                                 type="button"
-                                class="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-danger px-6 font-semibold text-white transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
+                                class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
                                 x-on:click="clock('clockOut')"
                                 x-bind:disabled="busy"
                                 wire:loading.attr="disabled"
@@ -109,13 +83,13 @@
                                 <span x-show="busy" x-cloak>{{ __('Saving…') }}</span>
                             </button>
                             <flux:modal.close>
-                                <flux:button class="min-h-14 w-full">{{ __('Cancel') }}</flux:button>
+                                <flux:button class="h-12 w-full">{{ __('Cancel') }}</flux:button>
                             </flux:modal.close>
                         </div>
                     </div>
                 </flux:modal>
             @else
-                <div class="flex flex-col gap-5" x-data="{ search: '' }">
+                <div class="flex flex-col gap-5">
                     <div>
                         <p class="text-lg font-bold text-brand-navy">{{ __('Which project are you working on?') }}</p>
                         <p class="text-sm text-zinc-500">{{ __('Only Ongoing projects are listed.') }}</p>
@@ -124,40 +98,28 @@
                     @if ($this->projects->isEmpty())
                         <x-empty-state icon="building-office-2" :title="__('No Ongoing projects')" :description="__('Ask your admin to set a project to Ongoing before clocking in.')" />
                     @else
-                        <flux:input x-model="search" icon="magnifying-glass" :placeholder="__('Search project code or name')" :aria-label="__('Search projects')" />
-
-                        <div class="flex max-h-80 flex-col gap-2 overflow-y-auto" role="radiogroup" aria-label="{{ __('Project') }}">
-                            @foreach ($this->projects as $project)
-                                {{-- Selection is highlighted in CSS (has-checked) and sent with the Clock In call: no round trip per tap. --}}
-                                <label
-                                    wire:key="clock-project-{{ $project->id }}"
-                                    x-show="search === '' || @js(\Illuminate\Support\Str::lower($project->code.' '.$project->name)).includes(search.toLowerCase())"
-                                    class="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 border-zinc-200 px-4 py-3 transition-colors duration-150 hover:border-brand-blue-light hover:bg-brand-tint has-checked:border-brand-gold has-checked:bg-warning-soft"
-                                >
-                                    <input type="radio" wire:model="projectId" value="{{ $project->id }}" class="size-5 accent-brand-gold" />
-                                    <span class="min-w-0 flex-1">
-                                        <span class="block truncate font-semibold text-brand-navy">{{ $project->name }}</span>
-                                        <span class="block truncate text-xs text-zinc-500"><span class="font-mono">{{ $project->code }}</span> &middot; {{ $project->location }}</span>
-                                    </span>
-                                </label>
-                            @endforeach
-                        </div>
+                        {{-- A dropdown handles any number of projects; on phones it opens the device's own picker. --}}
+                        <flux:field>
+                            <flux:label>{{ __('Project') }}</flux:label>
+                            <flux:select wire:model="projectId" :placeholder="__('Choose the project you are working on…')" data-test="clock-project-select">
+                                @foreach ($this->projects as $project)
+                                    <flux:select.option :value="$project->id">{{ $project->code }} · {{ $project->name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="projectId" />
+                        </flux:field>
                     @endif
-
-                    @error('projectId')
-                        <p class="text-sm font-medium text-danger">{{ $message }}</p>
-                    @enderror
 
                     @if ($this->projects->isNotEmpty())
                         <button
                             type="button"
-                            class="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand-gold px-6 text-lg font-semibold text-brand-navy shadow-card transition-colors duration-150 hover:bg-brand-orange hover:text-white disabled:opacity-60"
+                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gold px-5 font-semibold text-brand-navy shadow-card transition-colors duration-150 hover:bg-brand-orange hover:text-white disabled:opacity-60"
                             x-on:click="clock('clockIn')"
                             x-bind:disabled="busy"
                             wire:loading.attr="disabled"
                             data-test="clock-in-button"
                         >
-                            <flux:icon icon="play-circle" class="size-6" />
+                            <flux:icon icon="play-circle" class="size-5" />
                             <span x-show="! busy">{{ __('Clock In') }}</span>
                             <span x-show="busy" x-cloak>{{ __('Saving…') }}</span>
                         </button>

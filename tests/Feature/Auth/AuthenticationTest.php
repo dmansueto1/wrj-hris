@@ -19,6 +19,15 @@ class AuthenticationTest extends TestCase
             ->assertSee('images/wrj88-logo.png');
     }
 
+    public function testTheLoginPageLinksWorkersToTheKiosk(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSeeHtml('data-test="kiosk-link"')
+            ->assertSee(route('kiosk'))
+            ->assertSee('Clocking in on site?');
+    }
+
     public function testUsersCanAuthenticateWithTheirUsername(): void
     {
         $user = User::factory()->create(['first_name' => 'John', 'last_name' => 'Doe']);

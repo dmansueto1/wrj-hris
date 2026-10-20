@@ -263,4 +263,17 @@ class ClockScreenTest extends TestCase
 
         Livewire::test(Clock::class)->assertSee('No duty yet today.');
     }
+
+    public function testProjectsArePickedFromADropdownOfOngoingProjects(): void
+    {
+        $this->actingAs(User::factory()->worker()->create());
+        $ongoing = Project::factory()->ongoing()->create(['code' => 'PRJ-001', 'name' => 'Riverside Townhomes']);
+        Project::factory()->onHold()->create(['code' => 'PRJ-009', 'name' => 'Paused Warehouse']);
+
+        Livewire::test(Clock::class)
+            ->assertSeeHtml('data-test="clock-project-select"')
+            ->assertSeeHtml('value="'.$ongoing->id.'"')
+            ->assertSee('PRJ-001 · Riverside Townhomes')
+            ->assertDontSee('Paused Warehouse');
+    }
 }

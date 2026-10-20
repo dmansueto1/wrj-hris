@@ -184,3 +184,31 @@ button:focus-visible,
 [x-cloak] {
     display: none !important;
 }
+
+/* Kiosk: new rows in "Today's duties" slide in; the reduced-motion rule above turns this off. */
+@keyframes row-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-row-in {
+    animation: row-in 400ms ease-out both;
+}
+
+/* Hero band for the login pages and the kiosk: navy with a faint white blueprint grid and soft glows. */
+.bg-hero-blueprint {
+    background-color: var(--color-brand-navy);
+    background-image:
+        linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+        radial-gradient(circle at 85% 0%, rgb(242 169 0 / 0.18), transparent 40%),
+        radial-gradient(circle at 0% 100%, rgb(74 144 217 / 0.18), transparent 45%);
+    background-size: 28px 28px, 28px 28px, 100% 100%, 100% 100%;
+}

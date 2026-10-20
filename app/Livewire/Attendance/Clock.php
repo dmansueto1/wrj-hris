@@ -4,6 +4,7 @@ namespace App\Livewire\Attendance;
 
 use App\Exceptions\Attendance\AttendanceException;
 use App\Exceptions\Attendance\ProjectNotOngoingException;
+use App\Livewire\Attendance\Concerns\ReadsBrowserLocation;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
@@ -23,6 +24,8 @@ use Livewire\Component;
 #[Title('Clock In/Out')]
 class Clock extends Component
 {
+    use ReadsBrowserLocation;
+
     /** The Ongoing project picked for clock-in. */
     public ?int $projectId = null;
 
@@ -124,27 +127,6 @@ class Clock extends Component
         }
 
         unset($this->openSession, $this->today);
-    }
-
-    /**
-     * Browser coordinates, or nulls when location was denied, unavailable or out of range.
-     *
-     * @return array{0: ?float, 1: ?float}
-     */
-    private function location(mixed $lat, mixed $lng): array
-    {
-        if (! is_numeric($lat) || ! is_numeric($lng)) {
-            return [null, null];
-        }
-
-        $lat = (float) $lat;
-        $lng = (float) $lng;
-
-        if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
-            return [null, null];
-        }
-
-        return [$lat, $lng];
     }
 
     private function user(): User
