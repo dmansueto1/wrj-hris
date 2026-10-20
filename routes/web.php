@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Auth\ChangePassword;
+use App\Livewire\Materials;
 use App\Livewire\Projects;
 use App\Livewire\Users;
 use App\Models\Project;
@@ -37,6 +38,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('projects/{project}', fn (Project $project) => view('placeholder', ['title' => $project->name]))
         ->middleware(Navigation::middlewareFor('projects.index'))
         ->name('projects.show');
+
+    // Materials masterfile (T-08): add and edit screens, same protection as the list.
+    Route::middleware(Navigation::middlewareFor('materials.index'))->group(function () {
+        Route::livewire('materials/create', Materials\Create::class)->name('materials.create');
+        Route::livewire('materials/{material}/edit', Materials\Edit::class)->name('materials.edit');
+    });
 
     // Users masterfile (T-06): add and edit screens, same protection as the list.
     Route::middleware([Navigation::middlewareFor('users.index'), 'password.confirm'])->group(function () {

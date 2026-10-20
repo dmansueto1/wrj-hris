@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Livewire\Materials;
 use App\Livewire\Projects;
 use App\Livewire\Users;
 use App\Models\User;
@@ -24,7 +25,7 @@ class Navigation
             ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'group' => 'Time', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all']],
             ['label' => 'Projects', 'url' => 'projects', 'route' => 'projects.index', 'group' => 'Operations', 'icon' => 'building-office-2', 'permissions' => ['expenses.view', 'projects.manage'], 'component' => Projects\Index::class],
             ['label' => 'Material Entries', 'url' => 'material-entries', 'route' => 'material-entries.index', 'group' => 'Operations', 'icon' => 'shopping-cart', 'permissions' => ['material-entries.create']],
-            ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'group' => 'Operations', 'icon' => 'cube', 'permissions' => ['materials.manage']],
+            ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'group' => 'Operations', 'icon' => 'cube', 'permissions' => ['materials.manage'], 'component' => Materials\Index::class],
             ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'group' => 'Admin', 'icon' => 'users', 'permissions' => ['users.manage'], 'component' => Users\Index::class, 'middleware' => ['password.confirm']],
             ['label' => 'Reports', 'url' => 'reports', 'route' => 'reports.index', 'group' => 'Admin', 'icon' => 'document-chart-bar', 'permissions' => ['reports.export']],
         ];
