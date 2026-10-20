@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Livewire\Attendance;
 use App\Livewire\Materials;
 use App\Livewire\Projects;
 use App\Livewire\Users;
@@ -20,7 +21,7 @@ class Navigation
     public static function items(): array
     {
         return [
-            ['label' => 'Clock In/Out', 'url' => 'clock', 'route' => 'clock', 'group' => 'Time', 'icon' => 'clock', 'permissions' => ['attendance.clock']],
+            ['label' => 'Clock In/Out', 'url' => 'clock', 'route' => 'clock', 'group' => 'Time', 'icon' => 'clock', 'permissions' => ['attendance.clock'], 'component' => Attendance\Clock::class],
             ['label' => 'My Attendance', 'url' => 'attendance/mine', 'route' => 'attendance.mine', 'group' => 'Time', 'icon' => 'calendar-days', 'permissions' => ['attendance.view-own']],
             ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'group' => 'Time', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all']],
             ['label' => 'Projects', 'url' => 'projects', 'route' => 'projects.index', 'group' => 'Operations', 'icon' => 'building-office-2', 'permissions' => ['expenses.view', 'projects.manage'], 'component' => Projects\Index::class],

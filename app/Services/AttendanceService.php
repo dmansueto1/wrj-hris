@@ -10,6 +10,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\Costing\LaborCost;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -54,6 +55,37 @@ class AttendanceService
 
             return $session;
         });
+    }
+
+    /**
+     * The session the user is clocked in to right now, if any.
+     */
+    public function openSessionFor(User $user): ?Attendance
+    {
+        return Attendance::query()->open()->with('project')->where('user_id', $user->id)->first();
+    }
+
+    /**
+     * The user's sessions with today's work date (void ones left out) and the day's total hours,
+     * computed from the exact minutes of the counted sessions (PRD US-12).
+     *
+     * @return array{sessions: Collection<int, Attendance>, total_hours: string}
+     */
+    public function today(User $user): array
+    {
+        $sessions = Attendance::query()
+            ->with('project')
+            ->where('user_id', $user->id)
+            ->whereDate('work_date', now()->toDateString())
+            ->where('status', '!=', Attendance::STATUS_VOID)
+            ->orderBy('clock_in_at')
+            ->get();
+
+        $minutes = (int) $sessions
+            ->filter(fn (Attendance $session) => in_array($session->status, Attendance::COUNTED_STATUSES, true))
+            ->sum('minutes_worked');
+
+        return ['sessions' => $sessions, 'total_hours' => LaborCost::hoursForMinutes($minutes)];
     }
 
     public function clockOut(User $user, ?float $lat = null, ?float $lng = null): Attendance

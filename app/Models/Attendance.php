@@ -92,11 +92,13 @@ class Attendance extends Model
     }
 
     /**
+     * Includes archived projects, so past sessions always show where the work was done.
+     *
      * @return BelongsTo<Project, $this>
      */
     public function project(): BelongsTo
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Project::class)->withTrashed();
     }
 
     /**

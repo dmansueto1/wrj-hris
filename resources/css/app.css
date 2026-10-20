@@ -179,3 +179,8 @@ button:focus-visible,
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Alpine: hide elements until Alpine has initialised them. */
+[x-cloak] {
+    display: none !important;
+}

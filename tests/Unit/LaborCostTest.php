@@ -59,4 +59,12 @@ class LaborCostTest extends TestCase
 
         LaborCost::forMinutes(-1, '80.00');
     }
+
+    public function testHoursForMinutesRoundsHalfUpToTwoDecimals(): void
+    {
+        $this->assertSame('9.00', LaborCost::hoursForMinutes(540));
+        $this->assertSame('4.33', LaborCost::hoursForMinutes(260));
+        $this->assertSame('0.02', LaborCost::hoursForMinutes(1));
+        $this->assertSame('0.00', LaborCost::hoursForMinutes(0));
+    }
 }
