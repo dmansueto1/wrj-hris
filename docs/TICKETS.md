@@ -68,7 +68,10 @@ When finished, list every file you created or changed.
 | T-10.1 | Kiosk clock in/out | Additional | T-10, T-09, T-04 |
 | T-10.2 | Photo capture on clock in/out | Additional | T-10.1, T-10 |
 | T-11 | Attendance history views | Attendance | T-10, T-10.2 |
-| T-12 | Attendance corrections | Attendance | T-11 |
+| T-11.1 | Approved devices for kiosk and clock in/out | Additional | T-10, T-10.1, T-10.2 |
+| T-11.2 | User shift schedule | Additional | T-06 |
+| T-11.3 | Count worked time within the shift | Additional | T-11.2, T-09, T-10 |
+| T-12 | Attendance corrections | Attendance | T-11, T-11.3 |
 | T-13 | Flag forgotten clock-outs | Attendance | T-09, T-10, T-10.1 |
 | T-14 | Material cost and entries table | Materials & Expenses | T-07, T-08 |
 | T-15 | Material entry screen | Materials & Expenses | T-14 |
@@ -446,7 +449,7 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
 
 **Goal:** the Admin can fix mistakes, and every fix recalculates labor cost and records who changed it and why.
 
-**Depends on:** T-11
+**Depends on:** T-11, T-11.3
 
 **Build**
 
@@ -456,7 +459,7 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
   - `changeProject(Attendance $a, Project $project, string $reason, User $admin)`
   - `split(Attendance $a, Carbon $at, string $reason, User $admin)` — ends the session at `$at` and creates a second session from `$at` to the original clock-out with the same project and rate.
   - `void(Attendance $a, string $reason, User $admin)`
-- Every change: recompute minutes, hours and labor cost with `LaborCost` using the session's saved `hourly_rate`; set `status = adjusted` (or `void`), `adjusted_by` and `adjustment_reason`.
+- Every change: recompute minutes, hours and labor cost with `LaborCost` using the session's saved `hourly_rate`, counting only the minutes inside the attendance's saved `shift_windows` with `ShiftMinutes::counted()` (T-11.3; Flexible counts every minute); set `status = adjusted` (or `void`), `adjusted_by` and `adjustment_reason`.
 - Validation: reason required (at least 10 characters); clock-out after clock-in; no time in the future; no overlap with the same user's other non-void sessions.
 - UI: a "Correct" button on each `/attendance` row (permission `attendance.correct`, behind `password.confirm`) opening a modal with the five actions.
 
@@ -811,6 +814,222 @@ The last three tickets make every sensitive change traceable, give the client ex
 - Unit: `AttendancePhotos::rules()` is `required` when required and `nullable` when not.
 
 **Verify:** on a phone or tablet, clock in at `/kiosk` and `/clock`, allow the camera, take the photo, then open `/attendance/{id}/photo/in` as Admin; deny the camera once and confirm the button stays disabled with the message.
+
+#### Definition of done
+
+- [ ] All acceptance criteria met
+- [ ] All listed tests written and passing; full suite passes with `php artisan test`
+- [ ] Screens work at phone width (375 px) and desktop width
+- [ ] No errors in the browser console or `storage/logs/laravel.log`
+- [ ] Code formatted with `./vendor/bin/pint`
+
+### T-11.1 – Approved devices for kiosk and clock in/out
+
+**Goal:** only devices an Admin has approved can use the kiosk at `/kiosk` and the Clock In / Clock Out buttons at `/clock`; every other device is recorded as pending with a short code the Admin can approve on a new Devices page.
+
+**Depends on:** T-10, T-10.1, T-10.2
+
+**Current implementation**
+
+- `/kiosk` (`App\Livewire\Attendance\Kiosk`, T-10.1) has no login; its actions are `verify()`, `clockIn()` and `clockOut()`, and it embeds `<livewire:attendance.kiosk-duties />`.
+- `/clock` (`App\Livewire\Attendance\Clock`, T-10) checks `attendance.clock` in `boot()`; its actions are `clockIn()` and `clockOut()`, errors are shown with `addError('clock', …)` and the `clock-error` callout.
+- Both call `AttendanceService::clockIn()` / `clockOut()`; photos are switched on and off with `config('attendance.require_photo')` (`config/attendance.php`, `ATTENDANCE_REQUIRE_PHOTO`, set to false in `phpunit.xml`) read through `App\Support\AttendancePhotos::required()`.
+- Menu items, their routes and permission middleware come from `App\Support\Navigation::items()`; permissions are seeded by `RolesAndPermissionsSeeder::ROLE_PERMISSIONS`.
+- `spatie/laravel-activitylog` is installed (`activity_log` table migrated) but not yet written to.
+- A web page cannot read a phone's or tablet's hardware ID, and native apps are out of scope (PRD 4), so a device is identified by a long-lived browser cookie. Clearing the browser data or using a private window makes it a new, pending device.
+
+**Build**
+
+- Config: `config/attendance.php` gets `'require_approved_device' => (bool) env('ATTENDANCE_REQUIRE_APPROVED_DEVICE', true)`; `phpunit.xml` sets `ATTENDANCE_REQUIRE_APPROVED_DEVICE=false` so existing kiosk and clock tests keep passing. Read it through `DeviceService::required()`.
+- Migration (new file) `create_devices_table`: `id`, `token_hash` (string 64, unique: SHA-256 of the cookie token, never the token itself), `code` (string 7, unique, e.g. `K7F-29Q`, uppercase letters and digits without 0/O/1/I), `name` (string 100, nullable), `status` (string 20: `pending` / `approved` / `blocked`, default `pending`), `browser` (string 100), `platform` (string 100), `user_agent` (text), `ip_address` (string 45), `first_seen_at`, `last_seen_at` (datetime), `last_user_id` (nullable FK users), `approved_by` (nullable FK users), `approved_at` (nullable datetime), timestamps, soft deletes; index on `status`.
+- Model `App\Models\Device` (`SoftDeletes`, constants `STATUS_PENDING`, `STATUS_APPROVED`, `STATUS_BLOCKED`, `STATUSES` label + badge color: Approved green, Pending amber, Blocked red, `statusLabel()` / `statusColor()` like `Attendance`), factory with `approved()`, `pending()` and `blocked()` states.
+- `App\Support\UserAgent::describe(string $userAgent): array{browser: string, platform: string}` — simple, dependency-free parsing ("Chrome", "Safari", "Edge", "Firefox"; "Android", "iPhone", "iPad", "Windows", "macOS"; otherwise "Unknown"). No new Composer package.
+- `App\Services\DeviceService`:
+  - `current(Request $request): Device` — reads the `wrj_device` cookie (Laravel-encrypted, `HttpOnly`, `Secure`, `SameSite=Lax`, 5 years); when missing or unknown, creates a random 40-character token, stores a new `pending` device with a unique `code`, and queues the cookie. Updates `last_seen_at` and `ip_address` at most once every 5 minutes.
+  - `isAllowed(Request $request): bool` — true when `required()` is false, otherwise only for an `approved` device that is not archived.
+  - `approve(Device $device, string $name, User $admin)`, `block(Device $device, User $admin)`, `rename(Device $device, string $name, User $admin)`, `archive(Device $device, User $admin)` — each writes `activity('devices')->performedOn($device)->causedBy($admin)` with the old and new status.
+  - `recordUser(Device $device, User $user)` — sets `last_user_id` after a successful kiosk or clock action.
+- Middleware `App\Http\Middleware\IdentifyDevice` on the `kiosk` and `clock` routes (and on Livewire updates from those pages, by resolving the device in each component's `boot()` through `DeviceService::current()`), so the device is created and its cookie set on the first visit.
+- Kiosk (`/kiosk`):
+  - When the device is not allowed, `render()` returns a locked screen in the kiosk design (navy blueprint band and floating card) instead of the sign-in form: lock icon, "This device is not approved for clock in/out.", the device code in large monospace letters, "Ask your admin to approve this device on the Devices page.", and a "Check again" button that reloads. The sign-in form, the step bar and `<livewire:attendance.kiosk-duties />` are not rendered.
+  - `verify()`, `clockIn()` and `clockOut()` throw a 403 when the device is not allowed (a tampered request cannot get past the locked screen).
+- Clock In/Out (`/clock`):
+  - The page still opens. When the device is not allowed, the Clock In and Clock Out buttons (`clock-in-button`, `clock-out-button`) are disabled and a warning callout above them reads "This device is not approved for clock in/out. Device code: K7F-29Q. Ask your admin to approve it." (`data-test="device-not-approved"`); the camera modals are not rendered.
+  - `clockIn()` and `clockOut()` re-check `DeviceService::isAllowed()` on the server and, when not allowed, add the `clock` error "This device is not approved for clock in/out." and save nothing.
+- New permission `devices.manage` for `admin` only, added to `RolesAndPermissionsSeeder::ROLE_PERMISSIONS` (and to `PermissionCatalog` under Admin as "Manage devices" if T-20 is already built).
+- Devices page `App\Livewire\Devices\Index` (`#[Title('Devices')]`, view `resources/views/livewire/devices/index.blade.php`), menu item in `Navigation::items()`: `['label' => 'Devices', 'url' => 'devices', 'route' => 'devices.index', 'group' => 'Admin', 'icon' => 'device-tablet', 'permissions' => ['devices.manage'], 'component' => Devices\Index::class]`; `boot()` and every action check `devices.manage`.
+  - `<x-page-header>` "Devices", "Phones, tablets and computers allowed to use the kiosk and Clock In/Out."
+  - Stat cards: Approved, Pending, Blocked.
+  - Filter toolbar: search by name or code, status select, `<x-filter-chip>`s and "Clear filters".
+  - Table in `<x-data-card>` (paginated with rows per page via `WithPerPage` and `<x-table-footer>`): Device (name, or "Unnamed device", with the code in a mono pill and a "This device" badge on the Admin's own current device), Browser / OS, Last seen (relative, e.g. "5 minutes ago", exact time in the tooltip), Last user (`<x-avatar>` + name), Status (`<x-status-badge>`), and a `flux:dropdown` with Approve (opens a modal asking for a name, e.g. "Site A tablet"), Rename, Block, Archive. Newest `last_seen_at` first, pending devices on top. `<x-empty-state>` when empty; stacked cards on phones.
+- Pruning: a daily scheduled command `devices:prune-pending` in `routes/console.php` archives `pending` devices not seen for 30 days.
+
+**Acceptance criteria**
+
+- [ ] Opening `/kiosk` on a new browser creates one pending device and shows the locked screen with its code; the sign-in form is not shown.
+- [ ] After the Admin approves that code on Devices, reloading `/kiosk` shows the normal sign-in form and clock in/out works.
+- [ ] On `/clock` with an unapproved device, the buttons are disabled with the "not approved" note, and a direct `clockIn` call saves no attendance.
+- [ ] Blocking or archiving an approved device locks it again on the next request.
+- [ ] Only Admin sees Devices in the menu; Staff and Worker get 403 on `/devices`.
+- [ ] With `ATTENDANCE_REQUIRE_APPROVED_DEVICE=false`, both pages work as before.
+
+**Tests**
+
+- Unit: `UserAgent::describe()` — an Android Chrome, an iPhone Safari, a Windows Edge and an unknown string give the expected browser and platform.
+- Unit: generated device codes are 7 characters in the form `XXX-XXX` and never contain 0, O, 1 or I.
+- Feature (`config(['attendance.require_approved_device' => true])`): the first `GET /kiosk` creates a pending device, sets the `wrj_device` cookie, and shows the device code and "This device is not approved"; a second request with the same cookie creates no new device.
+- Feature: kiosk with an approved device shows the sign-in form; `verify()` from a pending device returns 403.
+- Feature: `/clock` with a pending device shows `data-test="device-not-approved"` and disabled buttons; `clockIn()` adds the `clock` error and creates no attendance; with an approved device, clock in works and `last_user_id` is set.
+- Feature: approve, rename, block and archive change the status and each writes an `activity_log` row with the Admin as causer.
+- Feature (data provider): `/devices` — admin 200, staff 403, worker 403; guest redirected to login.
+- Feature: `devices:prune-pending` archives a pending device last seen 31 days ago and keeps one seen 29 days ago and every approved device.
+
+**Verify:** set `ATTENDANCE_REQUIRE_APPROVED_DEVICE=true`; open `/kiosk` on a tablet and note the code; on a computer, log in as Admin → Admin → Devices, approve the code as "Site A tablet"; tap "Check again" on the tablet and clock in; open `/clock` on an unapproved phone and confirm the buttons are disabled.
+
+#### Definition of done
+
+- [ ] All acceptance criteria met
+- [ ] All listed tests written and passing; full suite passes with `php artisan test`
+- [ ] Screens work at phone width (375 px) and desktop width
+- [ ] No errors in the browser console or `storage/logs/laravel.log`
+- [ ] Code formatted with `./vendor/bin/pint`
+
+### T-11.2 – User shift schedule
+
+**Goal:** an Admin sets each user's shift type (One shift a day, Two shifts a day or Flexible), their Monday-to-Sunday In / Out times and which days are rest days (days off) on the user's edit page, so later attendance can be counted against the shift.
+
+**Depends on:** T-06
+
+**Current implementation**
+
+- The user edit page `/users/{user}/edit` (`App\Livewire\Users\Edit`, view `resources/views/livewire/users/edit.blade.php`, permission `users.manage`, behind `password.confirm`) has sections "Details", "Rate history" and "Account actions" as white cards (`rounded-card bg-white p-6 shadow-card`).
+- `App\Models\User` uses `SoftDeletes` and `HasRoles`; `UserService` and `UserRateService` hold the user business logic; the hourly rate is saved on each attendance at clock-in so later changes never alter past costs (PRD 7.4 rule 4). The shift follows the same rule in T-11.3.
+- There is no shift data yet. Without a shift, attendance is counted exactly as clocked (PRD 7.1).
+
+**Build**
+
+- Migration (new file) `add_shift_type_to_users_table`: `shift_type` string(20) not null, default `flexible`. Constants on `User`: `SHIFT_ONE = 'one'`, `SHIFT_TWO = 'two'`, `SHIFT_FLEXIBLE = 'flexible'`, and `SHIFT_TYPES` with labels "One shift a day", "Two shifts a day (morning and afternoon)", "Flexible (no fixed schedule)". `shift_type` is not mass assignable.
+- Migration (new file) `create_user_shifts_table`: `id`, `user_id` (FK users), `weekday` (unsigned tinyint 1–7, ISO: 1 = Monday … 7 = Sunday), `is_rest_day` (boolean, default false), `first_in`, `first_out`, `second_in`, `second_out` (`time`, nullable), timestamps; unique (`user_id`, `weekday`). Model `App\Models\UserShift`; `User::shifts()` has-many, ordered by `weekday`.
+  - One shift a day uses `first_in` / `first_out` ("In" / "Out"); the second pair stays null.
+  - Two shifts a day uses `first_in` / `first_out` ("Morning In" / "Morning Out") and `second_in` / `second_out` ("Afternoon In" / "Afternoon Out").
+  - Flexible keeps no rows.
+- `App\Services\UserShiftService`:
+  - `schedule(User $user): array` — the 7 days (Monday first) with rest day flag and times as `H:i`.
+  - `update(User $user, string $type, array $days, User $admin): void` — validates and saves inside a transaction; switching to Flexible deletes the user's rows; switching from Two to One clears `second_in` / `second_out`; writes one `activity('shifts')->performedOn($user)->causedBy($admin)` with the old and new type and days.
+  - `windowsFor(User $user, CarbonInterface $workDate): ?array` — the shift windows of that date in `Asia/Manila` as a list of `[start, end]` datetimes; `null` for Flexible; `[]` for a rest day. A One-shift window whose Out is earlier than its In ends the next day (night shift, e.g. 22:00 → 06:00). Used by T-11.3.
+- Validation (server side, messages in simple English):
+  - `type` in `SHIFT_TYPES`.
+  - Every day that is not a rest day needs all times of its type, in 24-hour `H:i` (the inputs are `type="time"`).
+  - One shift: In and Out must differ (Out earlier than In means it ends the next day).
+  - Two shifts: Morning In < Morning Out ≤ Afternoon In < Afternoon Out, all on the same day.
+  - At least one working day unless the type is Flexible.
+- Livewire component `App\Livewire\Users\ShiftSchedule` (view `resources/views/livewire/users/shift-schedule.blade.php`), embedded on the edit page as a new "Shift" card between "Details" and "Rate history" with `<livewire:users.shift-schedule :user="$user" />`; `boot()` and `save()` check `users.manage`.
+  - A "Shift type" `flux:select` with the three options; the table below updates as soon as the type changes.
+  - Flexible: a note "Hours count exactly as clocked in and out." and no table.
+  - One or Two shifts: a `flux:table` with a row per day (Monday … Sunday) and columns Day, then In / Out, or Morning In / Morning Out / Afternoon In / Afternoon Out (`flux:input type="time"`), and a last column **Rest day**. A small "Copy Monday to all working days" link fills the other working days (rest days are left alone). This table is a fixed 7-row form, so it is not paginated.
+  - Rest day (day off), per day:
+    - A `flux:checkbox` labeled "Rest day" in the row's last column (`wire:model.live="days.{weekday}.is_rest_day"`, `data-test="rest-day-{weekday}"`).
+    - Ticking it makes the row a rest day at once: the time inputs are replaced by a muted `<x-status-badge color="zinc">Rest day</x-status-badge>` spanning the time columns, and the row gets a soft gray background (`bg-neutral-soft/60`). Unticking brings the inputs back, keeping any times typed before (they are only cleared when saved as a rest day).
+    - When a user first switches from Flexible to One or Two shifts, the table starts with Monday to Saturday as working days (08:00–17:00, or 08:00–12:00 and 13:00–17:00) and **Sunday ticked as Rest day**; the Admin can change any day.
+    - Saving a rest day stores `is_rest_day = true` and sets its four times to null; a rest day needs no times and is never validated for them.
+    - Under the table, a one-line summary: "Working days: Mon–Sat · Rest day: Sun" (or "Rest days: Sat, Sun"), updated as boxes are ticked.
+  - Phones: one card per day with the day name and the "Rest day" checkbox on the top line, and the time inputs stacked below (hidden on a rest day, replaced by the "Rest day" badge).
+  - "Save shift" button (`btn-accent`), errors under each input, toast "Shift saved. It applies to attendance clocked in from now on."
+- The users list (`/users`) gets no new column in this ticket.
+- `UserFactory` gets states `oneShift(string $in = '08:00', string $out = '17:00')`, `twoShifts(string $morningIn = '08:00', string $morningOut = '12:00', string $afternoonIn = '13:00', string $afternoonOut = '17:00')` with Monday–Saturday working and Sunday as rest day, and the default stays Flexible.
+
+**Acceptance criteria**
+
+- [ ] On a user's edit page, the Admin picks "Two shifts a day", sets Monday to Saturday to 8:00 AM–12:00 PM and 1:00 PM–5:00 PM, Sunday as rest day, saves, and the same values show after reload.
+- [ ] Ticking "Rest day" on Sunday hides Sunday's time inputs and shows a gray "Rest day" badge; after saving, Sunday has `is_rest_day = true` and no times, and the summary reads "Working days: Mon–Sat · Rest day: Sun".
+- [ ] Any day can be a rest day (for example Saturday and Sunday), and unticking it brings its time inputs back.
+- [ ] Switching the type to "One shift a day" shows only In / Out columns; to "Flexible" hides the table.
+- [ ] Morning Out after Afternoon In, or a working day with an empty time, shows an error and saves nothing.
+- [ ] New and existing users are Flexible until a shift is set.
+- [ ] Staff and Worker cannot open the page or call `save()`.
+
+**Tests**
+
+- Unit: `windowsFor()` — two shifts on a Monday 2026-10-19 give `[2026-10-19 08:00, 12:00]` and `[13:00, 17:00]`; the Sunday rest day gives `[]`; Flexible gives `null`; a One shift 22:00–06:00 on Monday gives `[2026-10-19 22:00, 2026-10-20 06:00]`.
+- Feature: saving two shifts writes 7 rows with the right times and rest day; a second save updates the rows (still 7, no duplicates).
+- Feature: ticking `days.7.is_rest_day` (Sunday) and `days.6.is_rest_day` (Saturday) with times still filled in saves both with `is_rest_day = true` and null times, and passes validation even though their times were not checked.
+- Feature: switching a Flexible user to "Two shifts a day" shows Monday to Saturday filled with the default times and Sunday ticked as Rest day (`data-test="rest-day-7"` checked).
+- Feature: "Copy Monday to all working days" fills Tuesday to Saturday and leaves the Sunday rest day without times.
+- Feature: switching from Two to One clears the afternoon times; switching to Flexible deletes the rows and sets `shift_type = flexible`.
+- Feature (data provider): invalid input — Morning In 12:00 / Morning Out 08:00; Morning Out 13:30 with Afternoon In 13:00; empty Afternoon Out on a working day; all 7 days as rest day with type One — each gives a validation error and changes nothing.
+- Feature: saving writes one `activity_log` row with the Admin as causer and the old and new schedule.
+- Feature (data provider): the Shift card on `/users/{user}/edit` — admin sees it (after password confirmation); staff and worker get 403; `ShiftSchedule::save()` as staff returns 403.
+
+**Verify:** log in as Admin → Users → edit a worker → Shift: choose "Two shifts a day", fill Monday, use "Copy Monday to all working days", tick "Rest day" on Saturday and Sunday and check the summary line, save and reload; try an invalid time and see the error; check a phone width of 375 px.
+
+#### Definition of done
+
+- [ ] All acceptance criteria met
+- [ ] All listed tests written and passing; full suite passes with `php artisan test`
+- [ ] Screens work at phone width (375 px) and desktop width
+- [ ] No errors in the browser console or `storage/logs/laravel.log`
+- [ ] Code formatted with `./vendor/bin/pint`
+
+### T-11.3 – Count worked time within the shift
+
+**Goal:** when a user with a shift clocks out, only the minutes inside that day's shift windows count as worked time and labor cost (clock in 7:50 AM and out 12:24 PM on an 8:00–12:00 shift counts 8:00–12:00 = 4.00 h), while the real clock-in and clock-out times stay saved.
+
+**Depends on:** T-11.2, T-09, T-10
+
+**Current implementation**
+
+- `AttendanceService::clockOut()` sets `minutes_worked` to all minutes from `clock_in_at` to `clock_out_at`, then `hours_worked` and `labor_cost` from `LaborCost::forMinutes($minutes, $session->hourly_rate)` (whole centavos, half-up). `clockIn()` saves `hourly_rate` on the attendance so later rate changes never alter past costs (PRD 7.4 rule 4).
+- `attendances` has `clock_in_at`, `clock_out_at`, `minutes_worked`, `hours_worked`, `labor_cost` (T-09 migration); the history pages (T-11) show the real In / Out times and "Worked time" from `hours_worked`; totals add up `hours_worked` and `labor_cost`.
+- T-11.2 adds `users.shift_type` and `user_shifts`, and `UserShiftService::windowsFor(User, workDate)` returning the shift windows of a date (`null` for Flexible, `[]` for a rest day).
+- **This changes PRD 7.1.** Today hours = clock out − clock in. After this ticket, for users with a shift, hours = the minutes of the attendance inside the shift windows. Users on a Flexible shift (everyone until T-11.2 is used) keep the PRD 7.1 rule, so the PRD 10.2 cases stay valid for them. PRD 7.1 and 10.2 must be updated with this ticket.
+
+**Build**
+
+- Migration (new file) `add_shift_columns_to_attendances_table`: `shift_windows` (json, nullable: the windows saved at clock-in, `null` = Flexible) and `clocked_minutes` (unsigned int, nullable: all minutes from clock in to clock out, kept for reference). `minutes_worked` becomes the counted minutes.
+- `App\Support\Costing\ShiftMinutes::counted(CarbonInterface $in, CarbonInterface $out, ?array $windows): int` (pure, no database):
+  - `null` windows (Flexible) → all minutes from `$in` to `$out` (unchanged behavior).
+  - Otherwise the sum of the overlaps between [`$in`, `$out`] and each window, in whole minutes; the gap between two windows (lunch) is not counted; a rest day (`[]`) or an attendance fully outside the windows counts 0.
+  - Never negative; never more than the clocked minutes.
+- `AttendanceService::clockIn()`: save `shift_windows` from `UserShiftService::windowsFor($user, work date)` as `[['start' => 'Y-m-d H:i', 'end' => 'Y-m-d H:i'], …]`, the same way the hourly rate is saved, so a later shift change never alters this attendance.
+- `AttendanceService::clockOut()`: `clocked_minutes` = all minutes; `minutes_worked` = `ShiftMinutes::counted()` using the saved `shift_windows`; `hours_worked` and `labor_cost` from `LaborCost::forMinutes(minutes_worked, hourly_rate)`. Open attendance clocked in before this ticket (no `shift_windows`) is treated as Flexible.
+- `Attendance` model: cast `shift_windows` to array; `isOutsideShift(): bool` (clocked minutes > 0 and counted minutes = 0); `uncountedMinutes(): int` (`clocked_minutes − minutes_worked`).
+- Display, keeping the real times:
+  - All Attendance and My Attendance (T-11): In / Out show the real times; Worked time shows the counted hours ("4.00 h"). When minutes were cut, a small muted line under it reads "Clocked 4h 34m" with a tooltip "Only time inside the shift (8:00 AM–12:00 PM) counts." When nothing counted, a red `<x-status-badge>` "Outside shift" appears next to the status.
+  - The Clock In/Out page shows, under the project picker when the user has a shift today, "Your shift today: 8:00 AM–12:00 PM, 1:00 PM–5:00 PM" (or "Rest day"), and the running Worked time still shows real elapsed time while Clocked In.
+- Totals (T-11 Total rows, `AttendanceService::today()`, project running expenses in T-16) keep adding `hours_worked` and `labor_cost`, so they automatically use counted time.
+- T-12 corrections (built after this ticket) recompute with `ShiftMinutes::counted()` and the attendance's saved `shift_windows`; T-12 lists this.
+
+**Acceptance criteria**
+
+- [ ] A user with an 8:00–12:00 shift who clocks in at 7:50 AM and out at 12:24 PM at ₱80.00/hr gets 4.00 h and ₱320.00; the In / Out columns still show 7:50 AM and 12:24 PM.
+- [ ] A Flexible user clocking 7:00–11:30 still gets 4.50 h and ₱360.00 (PRD 10.2).
+- [ ] Changing a user's shift after they clocked in does not change that attendance's counted hours.
+- [ ] An attendance on a rest day counts 0.00 h and ₱0.00 and shows "Outside shift".
+- [ ] The project's running expenses and the All Attendance totals use the counted amounts.
+
+**Tests**
+
+- Unit (`ShiftMinutes::counted()` then `LaborCost::forMinutes()`, rate ₱80.00/hr unless stated):
+
+| Case | Shift windows | Clock in – out | Counted minutes | Hours | Labor cost (₱) |
+| --- | --- | --- | --- | --- | --- |
+| Early in, late out | 08:00–12:00 | 07:50–12:24 | 240 | 4.00 | 320.00 |
+| Late in | 08:00–12:00 | 08:15–12:00 | 225 | 3.75 | 300.00 |
+| Early out, uneven | 08:00–12:00 | 07:30–11:20 | 200 | 3.33 | 266.67 |
+| Whole day, two shifts, no lunch clock-out | 08:00–12:00, 13:00–17:00 | 07:55–17:10 | 480 | 8.00 | 640.00 |
+| Afternoon only | 08:00–12:00, 13:00–17:00 | 12:30–17:00 | 240 | 4.00 | 320.00 |
+| Fully outside | 08:00–12:00 | 18:00–20:00 | 0 | 0.00 | 0.00 |
+| Rest day | none (`[]`) | 08:00–12:00 | 0 | 0.00 | 0.00 |
+| Flexible (PRD 10.2) | `null` | 07:00–11:30 | 270 | 4.50 | 360.00 |
+| Night shift at ₱95.50/hr | 22:00–06:00 (next day) | 21:45–06:20 | 480 | 8.00 | 764.00 |
+
+- Feature: clock in at 7:50 with a two-shift user, clock out at 12:24 → `clocked_minutes` 274, `minutes_worked` 240, `hours_worked` 4.00, `labor_cost` 320.00, `shift_windows` saved.
+- Feature: change the user's shift between clock in and clock out → the counted minutes use the shift saved at clock-in.
+- Feature: a Flexible user's clock in/out gives the same results as before this ticket (existing `AttendanceServiceTest` stays green).
+- Feature: All Attendance shows "4.00 h", "Clocked 4h 34m" and the real times 7:50 AM / 12:24 PM; a rest-day attendance shows "Outside shift"; neither page shows the word "session".
+- Feature: the Clock In/Out page shows "Your shift today" for a user with a shift and nothing for a Flexible user.
+
+**Verify:** give a worker a Two shifts a day schedule (T-11.2); clock in early and out late (use `travelTo` in tinker or real time); open All Attendance and check the counted hours, the "Clocked …" line and the labor cost; check a Flexible user still counts every minute.
 
 #### Definition of done
 

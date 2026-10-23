@@ -3,7 +3,7 @@
 
 **Goal:** the Admin can fix mistakes, and every fix recalculates labor cost and records who changed it and why.
 
-**Depends on:** T-11
+**Depends on:** T-11, T-11.3
 
 **Build**
 
@@ -13,7 +13,7 @@
   - `changeProject(Attendance $a, Project $project, string $reason, User $admin)`
   - `split(Attendance $a, Carbon $at, string $reason, User $admin)` — ends the session at `$at` and creates a second session from `$at` to the original clock-out with the same project and rate.
   - `void(Attendance $a, string $reason, User $admin)`
-- Every change: recompute minutes, hours and labor cost with `LaborCost` using the session's saved `hourly_rate`; set `status = adjusted` (or `void`), `adjusted_by` and `adjustment_reason`.
+- Every change: recompute minutes, hours and labor cost with `LaborCost` using the session's saved `hourly_rate`, counting only the minutes inside the attendance's saved `shift_windows` with `ShiftMinutes::counted()` (T-11.3; Flexible counts every minute); set `status = adjusted` (or `void`), `adjusted_by` and `adjustment_reason`.
 - Validation: reason required (at least 10 characters); clock-out after clock-in; no time in the future; no overlap with the same user's other non-void sessions.
 - UI: a "Correct" button on each `/attendance` row (permission `attendance.correct`, behind `password.confirm`) opening a modal with the five actions.
 
