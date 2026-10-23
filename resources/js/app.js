@@ -36,4 +36,78 @@ document.addEventListener('alpine:init', () => {
             }
         },
     }));
+    /**
+     * cameraCapture (T-10.2), used inside <x-clock-photo-modal>: the camera stays off until the user presses "Open camera". Then a live
+     * front-camera preview, snapshot scaled to at most 720 px, JPEG at quality 0.8, uploaded into the
+     * Livewire `photo` property. The stream stops when the photo is taken or the step closes.
+     */
+    window.Alpine.data('cameraCapture', () => ({
+        state: 'idle', // idle | starting | live | uploading | taken | error
+        preview: null,
+        stream: null,
+
+        destroy() {
+            this.stop();
+        },
+
+        async start() {
+            this.state = 'starting';
+            this.preview = null;
+
+            if (! navigator.mediaDevices?.getUserMedia) {
+                this.state = 'error';
+                return;
+            }
+
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                this.$refs.video.srcObject = this.stream;
+                await this.$refs.video.play();
+                this.state = 'live';
+            } catch (error) {
+                this.state = 'error';
+            }
+        },
+
+        stop() {
+            this.stream?.getTracks().forEach((track) => track.stop());
+            this.stream = null;
+        },
+
+        take() {
+            const video = this.$refs.video;
+            const scale = Math.min(1, 720 / Math.max(video.videoWidth, video.videoHeight));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            this.preview = canvas.toDataURL('image/jpeg', 0.8);
+            this.state = 'uploading';
+            this.stop();
+
+            canvas.toBlob((blob) => {
+                const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+                this.$wire.upload('photo', file, () => (this.state = 'taken'), () => (this.state = 'error'));
+            }, 'image/jpeg', 0.8);
+        },
+
+        async retake() {
+            this.$wire.set('photo', null);
+            await this.start();
+        },
+
+        // The modal's Close button: camera off, photo discarded, modal closed.
+        dismiss(modalName) {
+            this.stop();
+            this.state = 'idle';
+            this.preview = null;
+
+            if (this.$wire.photo) {
+                this.$wire.set('photo', null);
+            }
+
+            this.$flux.modal(modalName).close();
+        },
+    }));
 });

@@ -185,7 +185,7 @@ button:focus-visible,
     display: none !important;
 }
 
-/* Kiosk: new rows in "Today's duties" slide in; the reduced-motion rule above turns this off. */
+/* Kiosk: new rows in "Today's attendance" slide in; the reduced-motion rule above turns this off. */
 @keyframes row-in {
     from {
         opacity: 0;

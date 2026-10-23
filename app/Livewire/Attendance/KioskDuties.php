@@ -10,7 +10,7 @@ use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
- * "Today's duties" on the kiosk: the 10 newest clock events, refreshed every 10 seconds and right
+ * "Today's attendance" on the kiosk: the 10 newest clock events, refreshed every 10 seconds and right
  * after a clock in/out on this kiosk. A separate component so polling never re-sends the form.
  */
 class KioskDuties extends Component

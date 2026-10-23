@@ -243,7 +243,7 @@ class ClockScreenTest extends TestCase
             ->assertDontSeeHtml('data-test="clock-in-button"');
     }
 
-    public function testTheTodayPanelSaysDutyNotSession(): void
+    public function testTheTodayPanelSaysAttendanceNotSession(): void
     {
         $worker = User::factory()->worker()->create();
         $this->actingAs($worker);
@@ -251,17 +251,17 @@ class ClockScreenTest extends TestCase
         app(AttendanceService::class)->clockIn($worker, $project);
 
         Livewire::test(Clock::class)
-            ->assertSee('Clocked in')
-            ->assertSee('On Duty')
-            ->assertSee('This ends your duty on Riverside Townhomes.')
+            ->assertSee('Clocked In')
+            ->assertSee('Clocked In')
+            ->assertSee('This ends your attendance on Riverside Townhomes.')
             ->assertDontSeeText('session'); // visible text only; internal keys may still say session
     }
 
-    public function testWithNoDutyTodayThePanelSaysSo(): void
+    public function testWithNoAttendanceTodayThePanelSaysSo(): void
     {
         $this->actingAs(User::factory()->worker()->create());
 
-        Livewire::test(Clock::class)->assertSee('No duty yet today.');
+        Livewire::test(Clock::class)->assertSee('No attendance yet today.');
     }
 
     public function testProjectsArePickedFromADropdownOfOngoingProjects(): void
@@ -271,9 +271,28 @@ class ClockScreenTest extends TestCase
         Project::factory()->onHold()->create(['code' => 'PRJ-009', 'name' => 'Paused Warehouse']);
 
         Livewire::test(Clock::class)
+            ->assertSet('projectId', '')
             ->assertSeeHtml('data-test="clock-project-select"')
             ->assertSeeHtml('value="'.$ongoing->id.'"')
+            ->assertSeeHtml('<option value="" disabled selected class="placeholder">Select project</option>')
             ->assertSee('PRJ-001 · Riverside Townhomes')
             ->assertDontSee('Paused Warehouse');
+    }
+
+    public function testTheSelectProjectPlaceholderMatchesTheEmptyValueSoTheFirstProjectIsNotShownAsChosen(): void
+    {
+        // A null value matches no <option>, so the browser shows the first project while
+        // the component has none, and the Clock In button stays disabled.
+        $worker = User::factory()->worker()->create();
+        $this->actingAs($worker);
+        $project = Project::factory()->ongoing()->create();
+
+        Livewire::test(Clock::class)
+            ->assertSet('projectId', '')
+            ->set('projectId', (string) $project->id)
+            ->call('clockIn')
+            ->assertHasNoErrors();
+
+        $this->assertSame($project->id, $worker->attendances()->sole()->project_id);
     }
 }

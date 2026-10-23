@@ -27,6 +27,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $clock_in_lng
  * @property string|null $clock_out_lat
  * @property string|null $clock_out_lng
+ * @property string|null $clock_in_photo_path
+ * @property string|null $clock_out_photo_path
  * @property int|null $adjusted_by
  * @property string|null $adjustment_reason
  * @property Carbon|null $created_at

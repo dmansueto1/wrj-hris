@@ -19,9 +19,9 @@ use Illuminate\Support\Facades\DB;
  */
 class AttendanceService
 {
-    public function clockIn(User $user, Project $project, ?float $lat = null, ?float $lng = null): Attendance
+    public function clockIn(User $user, Project $project, ?float $lat = null, ?float $lng = null, ?string $photoPath = null): Attendance
     {
-        return DB::transaction(function () use ($user, $project, $lat, $lng) {
+        return DB::transaction(function () use ($user, $project, $lat, $lng, $photoPath) {
             $lockedUser = User::query()->lockForUpdate()->findOrFail($user->id);
 
             if ($lockedUser->status !== User::STATUS_ACTIVE) {
@@ -51,6 +51,7 @@ class AttendanceService
                 'status' => Attendance::STATUS_OPEN,
                 'clock_in_lat' => $lat,
                 'clock_in_lng' => $lng,
+                'clock_in_photo_path' => $photoPath,
             ])->save();
 
             return $session;
@@ -88,9 +89,9 @@ class AttendanceService
         return ['sessions' => $sessions, 'total_hours' => LaborCost::hoursForMinutes($minutes)];
     }
 
-    public function clockOut(User $user, ?float $lat = null, ?float $lng = null): Attendance
+    public function clockOut(User $user, ?float $lat = null, ?float $lng = null, ?string $photoPath = null): Attendance
     {
-        return DB::transaction(function () use ($user, $lat, $lng) {
+        return DB::transaction(function () use ($user, $lat, $lng, $photoPath) {
             User::query()->lockForUpdate()->findOrFail($user->id);
 
             $session = Attendance::query()->open()->where('user_id', $user->id)->lockForUpdate()->first();
@@ -111,6 +112,7 @@ class AttendanceService
                 'status' => Attendance::STATUS_CLOSED,
                 'clock_out_lat' => $lat,
                 'clock_out_lng' => $lng,
+                'clock_out_photo_path' => $photoPath,
             ])->save();
 
             return $session;

@@ -5,10 +5,12 @@ namespace App\Livewire\Attendance;
 use App\Exceptions\Attendance\AttendanceException;
 use App\Exceptions\Attendance\ProjectNotOngoingException;
 use App\Livewire\Attendance\Concerns\ReadsBrowserLocation;
+use App\Livewire\Attendance\Concerns\TakesAttendancePhoto;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AttendanceService;
+use App\Support\AttendancePhotos;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -25,9 +27,14 @@ use Livewire\Component;
 class Clock extends Component
 {
     use ReadsBrowserLocation;
+    use TakesAttendancePhoto;
 
-    /** The Ongoing project picked for clock-in. */
-    public ?int $projectId = null;
+    /**
+     * The Ongoing project picked for clock-in, as the select's value. Empty (not null) so the
+     * "Select project" placeholder is the selected option; with null the browser shows the first
+     * project while this stays empty, and the Clock In button stays disabled.
+     */
+    public string $projectId = '';
 
     /**
      * The session just closed, shown as a confirmation: start, end and hours.
@@ -47,8 +54,9 @@ class Clock extends Component
 
     public function clockIn(AttendanceService $attendance, mixed $lat = null, mixed $lng = null): void
     {
-        $this->validate(['projectId' => ['required', 'integer']], [
+        $this->validate(['projectId' => ['required', 'integer'], ...$this->photoRules()], [
             'projectId.required' => __('Choose the project you are working on.'),
+            ...$this->photoMessages(),
         ]);
 
         // Look the project up without trusting the screen: a tampered or stale ID gets a clear message.
@@ -59,18 +67,26 @@ class Clock extends Component
                 throw new ProjectNotOngoingException;
             }
 
-            $attendance->clockIn($this->user(), $project, ...$this->location($lat, $lng));
+            [$latitude, $longitude] = $this->location($lat, $lng);
 
-            $this->reset('projectId', 'lastClockOut');
+            $this->withStoredPhoto($this->user(), 'in', fn (?string $photoPath) => $attendance->clockIn($this->user(), $project, $latitude, $longitude, $photoPath));
+
+            $this->reset('projectId', 'lastClockOut', 'photo');
             Flux::toast(variant: 'success', text: __('Clocked in to :project.', ['project' => $project->name]));
-        });
+        }, 'clock-in-photo');
     }
 
     public function clockOut(AttendanceService $attendance, mixed $lat = null, mixed $lng = null): void
     {
+        $this->validate($this->photoRules(), $this->photoMessages());
+
         $this->attempt(function () use ($attendance, $lat, $lng) {
-            $session = $attendance->clockOut($this->user(), ...$this->location($lat, $lng));
+            [$latitude, $longitude] = $this->location($lat, $lng);
+
+            $session = $this->withStoredPhoto($this->user(), 'out', fn (?string $photoPath) => $attendance->clockOut($this->user(), $latitude, $longitude, $photoPath));
+
             $session->load('project');
+            $this->reset('photo');
 
             $this->lastClockOut = [
                 'project' => $session->project->name,
@@ -79,9 +95,8 @@ class Clock extends Component
                 'hours' => (string) $session->hours_worked,
             ];
 
-            Flux::modal('confirm-clock-out')->close();
             Flux::toast(variant: 'success', text: __('Clocked out. :hours hours recorded.', ['hours' => $session->hours_worked]));
-        });
+        }, 'confirm-clock-out');
     }
 
     #[Computed]
@@ -110,13 +125,15 @@ class Clock extends Component
 
     public function render(): View
     {
-        return view('livewire.attendance.clock');
+        return view('livewire.attendance.clock', [
+            'photoRequired' => AttendancePhotos::required(),
+        ]);
     }
 
     /**
      * Run a clock action and turn the service's rule violations into a friendly message on screen.
      */
-    private function attempt(callable $action): void
+    private function attempt(callable $action, string $modal): void
     {
         $this->resetErrorBag('clock');
 
@@ -126,6 +143,8 @@ class Clock extends Component
             $this->addError('clock', $e->getMessage());
         }
 
+        // Close the photo/confirm modal either way, so a rule message shows on the page.
+        Flux::modal($modal)->close();
         unset($this->openSession, $this->today);
     }
 

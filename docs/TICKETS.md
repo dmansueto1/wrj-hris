@@ -34,7 +34,7 @@ When finished, list every file you created or changed.
 - Livewire components are class-based, never single-file (`⚡*.blade.php`): the class (properties, attributes such as `#[Title]`/`#[Layout]`, actions, `render()`) goes in `app/Livewire/<Area>/<Name>.php`, and its view in `resources/views/livewire/<area>/<name>.blade.php` holds only the markup and fields. Route with `Route::livewire('url', Name::class)`, embed with `<livewire:area.name />`, test with `Livewire::test(Name::class)`.
 - Every table is paginated with a "Rows per page" choice of 10 / 25 / 50 / 100, default 10 (`App\Support\Pagination`). In the Livewire component `use App\Livewire\Concerns\WithPerPage;` and `->paginate($this->perPage())`; under the table render `<x-table-footer :paginator="…" />` (rows-per-page select + page links). Do not pass `:paginate` to `<flux:table>`.
 - Page design (all authenticated pages; the sign-in pages and the kiosk share the navy `bg-hero-blueprint` band, live greeting/clock and floating card): start with `<x-page-header>` (title, one-line description, actions on the right; the one key action uses `class="btn-accent"`); list pages add a row of `<x-stat-card>`s, a filter toolbar card with `<x-filter-chip>`s and a "Clear filters" link, and the list inside `<x-data-card>` with `<x-empty-state>` when empty; people show `<x-avatar>`; statuses and roles use `<x-status-badge>`; tables get stacked cards on phones (`md:hidden`); per-row actions go in a `flux:dropdown` menu. Menu items carry a `group` (Time / Operations / Admin) in `App\Support\Navigation`.
-- Wording on screen: never show the word "session" for attendance. One clock-in-to-clock-out period is a "duty"; its states are "On Duty" (clocked in, not yet out) and "Off Duty" (clocked out). Keep "Clock In" / "Clock Out" for the actions. Code and database names (`attendances`, `$session`, PRD wording) stay as they are.
+- Wording on screen: never show "session" or "duty". One clock-in-to-clock-out period is an "attendance" (an attendance record); its states are "Clocked In" (not yet out) and "Clocked Out". Actions stay "Clock In" / "Clock Out". Code and database names (`attendances`, `$session`, `$duty`, `KioskDuties`, `recentDuties`, PRD wording) stay as they are.
 - Business logic lives in `app/Services` or `app/Support`, never in Livewire components or controllers.
 - Money and hours are stored as `DECIMAL(…, 2)`. Calculations use whole centavos (integers) with half-up rounding; never use floats for money.
 - Timezone `Asia/Manila`. Currency shown as `₱ 1,234.56`.
@@ -411,34 +411,34 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
 ### T-11 – Attendance history views
 
 
-**Goal:** workers see their own hours; Admin and Staff see everyone's duties with labor cost and the clock-in/out photos.
+**Goal:** workers see their own hours; Admin and Staff see everyone's attendance with labor cost and the clock-in/out photos.
 
-**Depends on:** T-10, T-10.2 (photo columns and the `attendance.photo` route). Duties recorded at the kiosk (T-10.1) are ordinary `attendances` rows and need nothing extra.
+**Depends on:** T-10, T-10.2 (photo columns and the `attendance.photo` route). Attendance recorded at the kiosk (T-10.1) is stored as ordinary `attendances` rows and needs nothing extra.
 
 **Build**
 
-- On screen, a clock-in-to-clock-out period is a "duty", never a "session" (CLAUDE.md wording rule); "Clock In" / "Clock Out" stay for the actions.
-- `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), duties grouped by day with project, in, out, hours and status, plus daily and range total hours. Workers do not see peso amounts or photos.
-- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, photos, status; a totals row for hours and labor cost over all filtered duties (not just the current page); paginated with rows per page (10 / 25 / 50 / 100, default 10).
-- Photos column: small round thumbnails of the clock-in and clock-out photos loaded from `route('attendance.photo', [$attendance, 'in'|'out'])` (`loading="lazy"`); clicking a thumbnail opens it full size in a modal. A duty without a photo shows a muted "No photo" placeholder; an On Duty row shows only the clock-in photo.
-- Status badges with on-screen labels: open "On Duty" blue, closed "Off Duty" green, adjusted "Adjusted" purple, flagged "Flagged" red, void "Void" gray (struck through).
+- On screen, a clock-in-to-clock-out period is an "attendance" (one attendance record), never a "session" (CLAUDE.md wording rule); "Clock In" / "Clock Out" stay for the actions.
+- `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), attendance grouped by day with project, in, out, hours and status, plus daily and range total hours. Workers do not see peso amounts or photos.
+- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, photos, status; a totals row for hours and labor cost over all filtered attendance records (not just the current page); paginated with rows per page (10 / 25 / 50 / 100, default 10).
+- Photos column: small round thumbnails of the clock-in and clock-out photos loaded from `route('attendance.photo', [$attendance, 'in'|'out'])` (`loading="lazy"`); clicking a thumbnail opens it full size in a modal. An attendance record without a photo shows a muted "No photo" placeholder; a Clocked In row shows only the clock-in photo.
+- Status badges with on-screen labels: open "Clocked In" blue, closed "Clocked Out" green, adjusted "Adjusted" purple, flagged "Flagged" red, void "Void" gray (struck through).
 
 **Acceptance criteria**
 
-- [ ] A worker only ever sees their own duties, and never sees photos or peso amounts.
-- [ ] Totals in `/attendance` match the sum of the filtered rows, excluding void duties.
-- [ ] Admin and Staff see the clock-in and clock-out photo thumbnails for each duty, and can open them full size.
+- [ ] A worker only ever sees their own attendance, and never sees photos or peso amounts.
+- [ ] Totals in `/attendance` match the sum of the filtered rows, excluding void attendance records.
+- [ ] Admin and Staff see the clock-in and clock-out photo thumbnails for each attendance record, and can open them full size.
 - [ ] No screen in this ticket shows the word "session".
 
 **Tests**
 
-- Feature: worker A does not see worker B's duties on `/attendance/mine`.
+- Feature: worker A does not see worker B's attendance records on `/attendance/mine`.
 - Feature: worker gets 403 on `/attendance`; staff gets 200; admin gets 200.
-- Feature: date filter excludes duties outside the range.
-- Feature: totals row equals the sum of the counted duties shown, across all pages of the filtered result.
-- Feature: a duty with `clock_in_photo_path` and `clock_out_photo_path` set shows both thumbnails linking to `attendance.photo` with `in` and `out`; a duty without photos shows "No photo".
+- Feature: date filter excludes attendance outside the range.
+- Feature: totals row equals the sum of the counted attendance records shown, across all pages of the filtered result.
+- Feature: an attendance record with `clock_in_photo_path` and `clock_out_photo_path` set shows both thumbnails linking to `attendance.photo` with `in` and `out`; an attendance record without photos shows "No photo".
 - Feature: `/attendance/mine` contains no `attendance.photo` links.
-- Feature: open and closed duties show "On Duty" and "Off Duty"; neither page shows the text "session" (`assertDontSeeText`).
+- Feature: open and closed attendance records show "Clocked In" and "Clocked Out"; neither page shows the text "session" (`assertDontSeeText`).
 
 ### T-12 – Attendance corrections
 
@@ -475,33 +475,33 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
 
 ### T-13 – Flag forgotten clock-outs
 
-**Goal:** duties left open (On Duty) for more than 12 hours are flagged automatically so the Admin can correct them, and they do not block the worker.
+**Goal:** attendance records left open (Clocked In) for more than 12 hours are flagged automatically so the Admin can correct them, and they do not block the worker.
 
 **Depends on:** T-09, T-10, T-10.1 (the kiosk notice)
 
 **Build**
 
-- Artisan command `attendance:flag-open`: sets `status = flagged` for `open` duties whose `clock_in_at` is more than 12 hours ago.
+- Artisan command `attendance:flag-open`: sets `status = flagged` for `open` attendance records whose `clock_in_at` is more than 12 hours ago.
 - Schedule it hourly in `routes/console.php`.
-- A flagged duty does not count as open, so the worker can clock in again.
-- On screen, never say "session" (CLAUDE.md wording rule): a clock-in-to-clock-out period is a "duty".
-- `/clock` shows an amber banner when the user has a flagged duty: "You have an unfinished duty from {date}. Your admin will correct it."
+- A flagged attendance record does not count as open, so the worker can clock in again.
+- On screen, never say "session" (CLAUDE.md wording rule): a clock-in-to-clock-out period is an "attendance" (one attendance record).
+- `/clock` shows an amber banner when the user has a flagged attendance record: "You have an attendance from {date} that was not clocked out. Your admin will correct it."
 - The kiosk (`/kiosk`, T-10.1) shows the same notice in step 2, after the worker's username and password are verified.
-- `/attendance` shows a "Needs correction (N)" link that filters to flagged duties.
+- `/attendance` shows a "Needs correction (N)" link that filters to flagged attendance records.
 - Note for deployment: the server needs the cron entry `* * * * * php artisan schedule:run`.
 
 **Acceptance criteria**
 
-- [ ] A duty open 13 hours is flagged after the command runs; one open 11 hours is not.
-- [ ] The worker with a flagged duty can clock in again, on `/clock` and at the kiosk.
+- [ ] An attendance record open 13 hours is flagged after the command runs; one open 11 hours is not.
+- [ ] The worker with a flagged attendance record can clock in again, on `/clock` and at the kiosk.
 
 **Tests**
 
 - Feature: travel 13 hours, run the command → flagged; travel 11 hours → still open.
 - Feature: running the command twice changes nothing the second time.
-- Feature: a user with a flagged duty can `clockIn` successfully.
-- Feature: `/clock` shows "You have an unfinished duty from {date}. Your admin will correct it." for a user with a flagged duty, and no visible "session" text (`assertDontSeeText`).
-- Feature: the kiosk shows the same notice in step 2 for a verified worker with a flagged duty.
+- Feature: a user with a flagged attendance record can `clockIn` successfully.
+- Feature: `/clock` shows "You have an attendance from {date} that was not clocked out. Your admin will correct it." for a user with a flagged attendance record, and no visible "session" text (`assertDontSeeText`).
+- Feature: the kiosk shows the same notice in step 2 for a verified worker with a flagged attendance record.
 - Feature: the scheduler lists `attendance:flag-open` as hourly.
 
 ## Epic 4 – Materials and Expenses
@@ -686,19 +686,19 @@ The last three tickets make every sensitive change traceable, give the client ex
 
 ### T-10.1 – Kiosk clock in/out
 
-**Goal:** workers clock in and out every day on a shared site tablet at `/kiosk`, without logging in to the system, by entering their username and password; the screen clears for the next worker right after each success, and a live list of today's latest duties lets each worker confirm their own entry.
+**Goal:** workers clock in and out every day on a shared site tablet at `/kiosk`, without logging in to the system, by entering their username and password; the screen clears for the next worker right after each success, and a live list of today's latest attendance lets each worker confirm their own entry.
 
 **Depends on:** T-10 (built on branch `feat/attendance`, not yet on `develop`), T-09, T-04
 
 **Current implementation**
 
-- `App\Services\AttendanceService::clockIn(User $user, Project $project, ?float $lat, ?float $lng)` and `clockOut(User $user, ?float $lat, ?float $lng)` open and close a duty in a transaction that locks the user's row, and throw `AlreadyClockedInException`, `NotClockedInException`, `ProjectNotOngoingException` and `InactiveUserException` (all extend `App\Exceptions\Attendance\AttendanceException` with user-safe messages). `openSessionFor(User $user)` returns the open duty. Reuse all of them unchanged.
+- `App\Services\AttendanceService::clockIn(User $user, Project $project, ?float $lat, ?float $lng)` and `clockOut(User $user, ?float $lat, ?float $lng)` open and close an attendance record in a transaction that locks the user's row, and throw `AlreadyClockedInException`, `NotClockedInException`, `ProjectNotOngoingException` and `InactiveUserException` (all extend `App\Exceptions\Attendance\AttendanceException` with user-safe messages). `openSessionFor(User $user)` returns the open attendance. Reuse all of them unchanged.
 - `App\Actions\Fortify\AuthenticateUser` checks a username (lowercased) and password and returns the `User`, returns `null` for wrong credentials, and throws a `ValidationException` with `auth.inactive` for an inactive user. Reuse it to verify kiosk credentials.
 - `App\Support\Auth\LoginRateLimiter` (bound in `FortifyServiceProvider`) locks a username + IP for 15 minutes after 5 failures; its key is built from the `username` input and the IP, so kiosk failures and login-page failures share one lockout. The lockout message is `auth.lockout` (`App\Http\Responses\LockoutResponse`).
 - `App\Livewire\Attendance\Clock` + `resources/views/livewire/attendance/clock.blade.php` (T-10) hold the patterns to reuse: the Ongoing project picker (search box + large radio cards, `has-checked:` highlight), the 56 px full-width buttons, and the browser-location helper (`locate()` with a 5 s timeout, nulls when denied).
 - `Attendance` model: `open()` and `counted()` scopes, `project()` relation including archived projects, `STATUS_*` constants. `User::roleLabel()`, `User::initials()`, `<x-avatar>`.
 - Every role has `attendance.clock` (`RolesAndPermissionsSeeder`). No new permission is needed.
-- Wording rule (CLAUDE.md): on screen a clock-in-to-clock-out period is a "duty" ("On Duty" / "Off Duty"), never a "session"; "Clock In" / "Clock Out" stay for the actions.
+- Wording rule (CLAUDE.md): on screen a clock-in-to-clock-out period is an "attendance" ("Clocked In" / "Clocked Out"), never a "session"; "Clock In" / "Clock Out" stay for the actions.
 
 **Build**
 
@@ -706,28 +706,28 @@ The last three tickets make every sensitive change traceable, give the client ex
 - New layout `resources/views/layouts/kiosk.blade.php`: full-screen, light theme, navy top bar with the WRJ88 logo (`<x-app-logo-icon />`), "Attendance Kiosk", today's date and a large live clock (Asia/Manila, Alpine, every second). No sidebar, no user menu.
 - `App\Services\KioskService` (business logic stays out of the component):
   - `verify(Request $request, string $username, string $password): User` — uses `LoginRateLimiter` (`tooManyAttempts` → throw with the `auth.lockout` message and minutes remaining; `increment` on a wrong password; `clear` on success) and `AuthenticateUser`; throws for wrong credentials (`auth.failed`), an inactive user (`auth.inactive`) and a user without `attendance.clock`. A user with `must_change_password = true` **may** use the kiosk.
-  - `recentDuties(int $limit = 10): Collection` — today's latest clock events across all users, newest first: one row per clock-in (`clock_in_at`, type "On Duty") and one per clock-out (`clock_out_at`, type "Off Duty") of non-void attendances, counting only events whose time is today (so an overnight duty's morning clock-out is listed even though its work_date is yesterday); each row has the display name, project name, type and time.
+  - `recentDuties(int $limit = 10): Collection` — today's latest clock events across all users, newest first: one row per clock-in (`clock_in_at`, type "Clocked In") and one per clock-out (`clock_out_at`, type "Clocked Out") of non-void attendances, counting only events whose time is today (so an overnight attendance's morning clock-out is listed even though its work_date is yesterday); each row has the display name, project name, type and time.
   - `displayName(User $user): string` — first name + last initial ("Juan D."), so the public screen does not show full names.
 - `App\Livewire\Attendance\Kiosk` + `resources/views/livewire/attendance/kiosk.blade.php`, a two-step flow:
   1. **Identify:** large Username and Password fields and a "Continue" button. On submit, call `KioskService::verify`. Errors show in the red callout above the fields (wrong credentials, lockout with minutes remaining, inactive). The password property is cleared immediately after every attempt, success or not.
   2. **Act:** show "Hi, Juan D." and the user's current state from `AttendanceService::openSessionFor`:
-     - not on duty → a dropdown of Ongoing projects ("CODE · Name"; the phone's own picker scrolls, so many projects are fine) and an amber **Clock In** button;
-     - on duty → the project, "On Duty since 7:00 AM" with a running timer, and a red **Clock Out** button (no extra confirm step; the worker just verified with their password).
+     - not clocked in → a dropdown of Ongoing projects ("CODE · Name"; the phone's own picker scrolls, so many projects are fine) and an amber **Clock In** button;
+     - clocked in → the project, "Clocked In since 7:00 AM" with a running timer, and a red **Clock Out** button (no extra confirm step; the worker just verified with their password).
      - A "Not you? Start over" link returns to step 1 and clears everything.
   - The verified user is kept only as a `#[Locked]` user ID plus a verified-at time; the Clock In/Out action re-checks that the ID is set and was verified less than 2 minutes ago, otherwise it returns to step 1 with "Please enter your username and password again."
   - Clock In/Out calls `AttendanceService::clockIn` / `clockOut` with the browser location (reuse the `locate()` helper). Rule violations (`AttendanceException`) show in the callout.
-  - **Right after a successful clock in/out**, reset every field and the verified user, return to step 1, and show a toast ("Juan D. — On Duty at 7:02 AM" / "Juan D. — Off Duty at 11:30 AM"). The worker confirms through the live list.
-- Live duty list on the right (below the form on phones): heading "Today's duties", up to **10** rows from `KioskService::recentDuties(10)`, each with `<x-avatar>`, "Juan D.", an `<x-status-badge>` "On Duty" (green) or "Off Duty" (zinc), the project name and the time (`g:i A`). Refreshes with `wire:poll.10s` and immediately after the kiosk's own clock in/out; the newest row is highlighted for a few seconds. Empty state: "No one has clocked in yet today." Never show rates, hours, costs or employee numbers.
+  - **Right after a successful clock in/out**, reset every field and the verified user, return to step 1, and show a toast ("Juan D. — Clocked In at 7:02 AM" / "Juan D. — Clocked Out at 11:30 AM"). The worker confirms through the live list.
+- Live attendance list on the right (below the form on phones): heading "Today's attendance", up to **10** rows from `KioskService::recentDuties(10)`, each with `<x-avatar>`, "Juan D.", an `<x-status-badge>` "Clocked In" (green) or "Clocked Out" (zinc), the project name and the time (`g:i A`). Refreshes with `wire:poll.10s` and immediately after the kiosk's own clock in/out; the newest row is highlighted for a few seconds. Empty state: "No one has clocked in yet today." Never show rates, hours, costs or employee numbers.
 - Phone and tablet layout: standard-size fields and full-width buttons 48 px tall (comfortable touch targets, not oversized); on tablet landscape and desktop the form is on the left and the live list on the right.
-- Look and feel ("alive"): navy hero band with a blueprint grid and gold line like the login page, a large live clock with a time-of-day greeting, a Sign in → Clock step indicator, a pulsing live dot and an "N on duty now" counter (`KioskService::onDutyCount()`), new rows sliding in; all motion respects reduced-motion.
+- Look and feel ("alive"): navy hero band with a blueprint grid and gold line like the login page, a large live clock with a time-of-day greeting, a Sign in → Clock step indicator, a pulsing live dot and an "N clocked in now" counter (`KioskService::onDutyCount()`), new rows sliding in; all motion respects reduced-motion.
 
 **Acceptance criteria**
 
 - [ ] `/kiosk` opens without logging in, on phone (375 px) and tablet widths.
 - [ ] Wrong username or password shows "These credentials do not match our records." and no button.
 - [ ] After 5 wrong passwords for the same username from the same device, the 6th attempt shows the 15-minute lockout message (the same lockout as the login page).
-- [ ] A worker who is not on duty sees Clock In and the Ongoing projects only; after clocking in, the fields clear and "Juan D. · On Duty · Riverside Townhomes · 7:02 AM" is the top row of the live list.
-- [ ] The same worker entering their credentials again sees Clock Out; after clocking out, the fields clear and an "Off Duty" row for them is on top.
+- [ ] A worker who is not clocked in sees Clock In and the Ongoing projects only; after clocking in, the fields clear and "Juan D. · Clocked In · Riverside Townhomes · 7:02 AM" is the top row of the live list.
+- [ ] The same worker entering their credentials again sees Clock Out; after clocking out, the fields clear and a "Clocked Out" row for them is on top.
 - [ ] An inactive user gets the inactive message; a user with a temporary password (`must_change_password`) can still clock in.
 - [ ] The live list shows at most 10 rows, only today's, newest first, with no money or employee numbers.
 - [ ] Nobody is logged in to the web app by using the kiosk.
@@ -735,16 +735,16 @@ The last three tickets make every sensitive change traceable, give the client ex
 **Tests**
 
 - Feature: guest `GET /kiosk` returns 200 and shows the Username and Password fields; a logged-in user can also open it.
-- Feature (Livewire): correct credentials of a worker not on duty → step 2 with Clock In and only Ongoing projects; the password property is empty after verifying.
+- Feature (Livewire): correct credentials of a worker not clocked in → step 2 with Clock In and only Ongoing projects; the password property is empty after verifying.
 - Feature: wrong password → `auth.failed` error, stays on step 1, no attendance created; unknown username → same message.
 - Feature: 5 wrong passwords then a 6th attempt (even correct) → lockout message with minutes remaining; the login page is locked for that username too.
 - Feature: inactive user → `auth.inactive` message; user without a role (no `attendance.clock`) → refused.
 - Feature: `must_change_password` user → can clock in.
 - Feature: clock in → open attendance with the chosen project and the user's rate; all fields and the verified user are reset; `auth()->check()` is false.
-- Feature: verified user already on duty → Clock Out shown; clocking out at 11:30 after 7:00 (`$this->travelTo()`) → closed attendance with 270 minutes, 4.50 hours, ₱360.00; fields reset.
+- Feature: verified user already clocked in → Clock Out shown; clocking out at 11:30 after 7:00 (`$this->travelTo()`) → closed attendance with 270 minutes, 4.50 hours, ₱360.00; fields reset.
 - Feature: tampered request — calling `clockIn` without verifying, or with a verification older than 2 minutes (`$this->travel(3)->minutes()`) → back to step 1, nothing created; a non-Ongoing project ID → `ProjectNotOngoingException` message, nothing created.
 - Feature: "Start over" clears the verified user and fields.
-- Feature: `recentDuties(10)` with 12 clock events today and 2 yesterday → 10 rows, newest first, none from yesterday; a duty clocked in and out today gives both an "On Duty" and an "Off Duty" row; void attendances are left out.
+- Feature: `recentDuties(10)` with 12 clock events today and 2 yesterday → 10 rows, newest first, none from yesterday; an attendance record clocked in and out today gives both a "Clocked In" and a "Clocked Out" row; void attendances are left out.
 - Unit: `displayName` — "Juan" + "Dela Cruz" → "Juan D."; "Maria" + "Santos" → "Maria S.".
 - Feature (data provider): admin, staff and worker can each clock in and out at the kiosk.
 
@@ -760,13 +760,13 @@ The last three tickets make every sensitive change traceable, give the client ex
 
 ### T-10.2 – Photo capture on clock in/out
 
-**Goal:** every clock in and clock out, at `/kiosk` and on `/clock`, requires a photo of the worker taken with the device camera, stored privately with the duty so Admin and Staff can check who actually clocked in.
+**Goal:** every clock in and clock out, at `/kiosk` and on `/clock`, requires a photo of the worker taken with the device camera, stored privately with the attendance so Admin and Staff can check who actually clocked in.
 
 **Depends on:** T-10.1, T-10
 
 **Current implementation**
 
-- `attendances` table (T-09) has no photo columns. `AttendanceService::clockIn(User, Project, ?lat, ?lng)` and `clockOut(User, ?lat, ?lng)` save the duty inside a transaction with a user-row lock.
+- `attendances` table (T-09) has no photo columns. `AttendanceService::clockIn(User, Project, ?lat, ?lng)` and `clockOut(User, ?lat, ?lng)` save the attendance inside a transaction with a user-row lock.
 - `/clock` (`App\Livewire\Attendance\Clock`, T-10) and `/kiosk` (`App\Livewire\Attendance\Kiosk`, T-10.1) call those methods from an Alpine `clock(action)` helper that first gets the browser location, then calls the Livewire action.
 - The `local` disk (`config/filesystems.php`) stores files under `storage/app/private`, which is not publicly reachable. It has `'serve' => true`, which only allows signed temporary URLs; do not generate `temporaryUrl()` links for photos, so the permission-checked route below stays the only way to view them.
 - `attendance.view-all` is held by Admin and Staff (`RolesAndPermissionsSeeder`); there is no settings table yet (it arrives with T-14).

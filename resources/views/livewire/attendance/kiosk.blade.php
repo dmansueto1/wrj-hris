@@ -2,11 +2,11 @@
     Kiosk (T-10.1). Step 1: username + password. Step 2: Clock In (pick a project) or Clock Out.
     x-data="clockPad" (resources/js/app.js) gets the browser location, then calls the Livewire action.
 --}}
-<div class="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]" x-data="clockPad">
-    <section class="overflow-hidden rounded-card bg-white shadow-card-hover ring-1 ring-brand-navy/5">
+<div class="grid gap-6 lg:h-[32rem] lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]" x-data="clockPad">
+    <section class="flex flex-col overflow-hidden rounded-card bg-white shadow-card-hover ring-1 ring-brand-navy/5 lg:h-full">
         {{-- Step indicator --}}
         @php($step = $this->user === null ? 1 : 2)
-        <ol class="flex border-b border-zinc-100 text-xs font-semibold uppercase tracking-wider" aria-label="{{ __('Steps') }}">
+        <ol class="flex shrink-0 border-b border-zinc-100 text-xs font-semibold uppercase tracking-wider" aria-label="{{ __('Steps') }}">
             @foreach ([1 => __('Sign in'), 2 => __('Clock in or out')] as $number => $label)
                 <li @class([
                     'flex flex-1 items-center gap-2 px-5 py-3 transition-colors duration-200',
@@ -23,7 +23,7 @@
             @endforeach
         </ol>
 
-        <div class="p-6 sm:p-7">
+        <div class="min-h-0 flex-1 overflow-y-auto p-6 sm:p-7">
             @error('kiosk')
                 <flux:callout variant="danger" icon="exclamation-circle" :heading="$message" role="alert" class="mb-5" data-test="kiosk-error" />
             @enderror
@@ -108,18 +108,22 @@
                                         <span class="absolute inline-flex size-full rounded-full bg-success opacity-60 motion-safe:animate-ping"></span>
                                         <span class="relative inline-flex size-2.5 rounded-full bg-success"></span>
                                     </span>
-                                    {{ __('On Duty') }}
+                                    {{ __('Clocked In') }}
                                 </span>
                                 <span class="text-2xl font-bold tabular-nums text-brand-navy" x-text="elapsed">&nbsp;</span>
                             </div>
                             <p class="mt-3 font-semibold text-brand-navy">{{ $duty->project->name }}</p>
-                            <p class="text-sm text-zinc-600">{{ __('On Duty since :time', ['time' => $duty->clock_in_at->format('g:i A')]) }}</p>
+                            <p class="text-sm text-zinc-600">{{ __('Clocked In since :time', ['time' => $duty->clock_in_at->format('g:i A')]) }}</p>
                         </div>
+
+                        @if ($photoRequired)
+                            <x-photo-step-note action="out" />
+                        @endif
 
                         <button
                             type="button"
                             class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
-                            x-on:click="clock('clockOut')"
+                            x-on:click="@js($photoRequired) ? $flux.modal('kiosk-photo-out').show() : clock('clockOut')"
                             x-bind:disabled="busy"
                             wire:loading.attr="disabled"
                             data-test="kiosk-clock-out-button"
@@ -128,12 +132,24 @@
                             <span x-show="! busy">{{ __('Clock Out') }}</span>
                             <span x-show="busy" x-cloak>{{ __('Saving…') }}</span>
                         </button>
+
+                        @if ($photoRequired)
+                            <x-clock-photo-modal
+                                name="kiosk-photo-out"
+                                action="clockOut"
+                                tone="danger"
+                                :title="__('Take your photo')"
+                                :description="__('A photo of you is saved with your clock out.')"
+                                :confirm-label="__('Clock Out')"
+                                confirm-test="kiosk-confirm-clock-out-button"
+                            />
+                        @endif
                     @elseif ($this->projects->isEmpty())
                         <x-empty-state icon="building-office-2" :title="__('No Ongoing projects')" :description="__('Ask your admin to set a project to Ongoing before clocking in.')" />
                     @else
                         <flux:field>
                             <flux:label>{{ __('Project') }}</flux:label>
-                            <flux:select wire:model="projectId" :placeholder="__('Choose the project you are working on…')" data-test="kiosk-project-select">
+                            <flux:select wire:model="projectId" :placeholder="__('Select project')" data-test="kiosk-project-select">
                                 @foreach ($this->projects as $project)
                                     <flux:select.option :value="$project->id">{{ $project->code }} · {{ $project->name }}</flux:select.option>
                                 @endforeach
@@ -141,11 +157,15 @@
                             <flux:error name="projectId" />
                         </flux:field>
 
+                        @if ($photoRequired)
+                            <x-photo-step-note action="in" />
+                        @endif
+
                         <button
                             type="button"
                             class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gold px-5 font-semibold text-brand-navy shadow-card transition-colors duration-150 hover:bg-brand-orange hover:text-white disabled:opacity-60"
-                            x-on:click="clock('clockIn')"
-                            x-bind:disabled="busy"
+                            x-on:click="@js($photoRequired) ? $flux.modal('kiosk-photo-in').show() : clock('clockIn')"
+                            x-bind:disabled="busy || ! $wire.projectId"
                             wire:loading.attr="disabled"
                             data-test="kiosk-clock-in-button"
                         >
@@ -153,14 +173,23 @@
                             <span x-show="! busy">{{ __('Clock In') }}</span>
                             <span x-show="busy" x-cloak>{{ __('Saving…') }}</span>
                         </button>
+
+                        @if ($photoRequired)
+                            <x-clock-photo-modal
+                                name="kiosk-photo-in"
+                                action="clockIn"
+                                :title="__('Take your photo')"
+                                :description="__('A photo of you is saved with your clock in.')"
+                                :confirm-label="__('Clock In')"
+                                confirm-test="kiosk-confirm-clock-in-button"
+                            />
+                        @endif
                     @endif
                 </div>
             @endif
         </div>
     </section>
 
-    {{-- On wide screens the sign-in card sets the row height; Today's duties fills it and scrolls inside. --}}
-    <div class="relative">
-        <livewire:attendance.kiosk-duties />
-    </div>
+    {{-- Same fixed height as the sign-in card on wide screens; the list scrolls inside. --}}
+    <livewire:attendance.kiosk-duties />
 </div>

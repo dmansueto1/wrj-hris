@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttendancePhotoController;
 use App\Livewire\Attendance;
 use App\Livewire\Auth\ChangePassword;
 use App\Livewire\Materials;
@@ -31,6 +32,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $route->middleware([Navigation::middlewareFor($item['route']), ...($item['middleware'] ?? [])])
             ->name($item['route']);
     }
+
+    // Clock in/out photos (T-10.2): private files, Admin and Staff only.
+    Route::get('attendance/{attendance}/photo/{type}', AttendancePhotoController::class)
+        ->whereIn('type', ['in', 'out'])
+        ->middleware('permission:attendance.view-all')
+        ->name('attendance.photo');
 
     // Projects masterfile (T-07). Add/edit are Admin only; "create" is registered before {project}.
     Route::middleware('permission:projects.manage')->group(function () {

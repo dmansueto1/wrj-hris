@@ -59,8 +59,8 @@ class KioskService
     }
 
     /**
-     * Today's latest clock events across all users, newest first: one "On Duty" row per clock-in
-     * and one "Off Duty" row per clock-out that happened today. Void duties are left out.
+     * Today's latest clock events across all users, newest first: one "Clocked In" row per clock-in
+     * and one "Clocked Out" row per clock-out that happened today. Void duties are left out.
      *
      * @return Collection<int, array{key: string, direction: string, name: string, initials: string, type: string, project: string, time: string}>
      */
@@ -68,7 +68,7 @@ class KioskService
     {
         $startOfToday = now()->startOfDay();
 
-        // A duty's newest event is its clock-out (or clock-in while On Duty), so the newest $limit
+        // A duty's newest event is its clock-out (or clock-in while still clocked in), so the newest $limit
         // duties by that time always contain the newest $limit events.
         $duties = Attendance::query()
             ->with(['user' => fn ($query) => $query->withTrashed(), 'project'])
@@ -86,11 +86,11 @@ class KioskService
             $name = self::nameFor($duty->user->first_name, $duty->user->last_name);
 
             if ($duty->clock_in_at->greaterThanOrEqualTo($startOfToday)) {
-                $events[] = $this->event($duty, $name, 'in', __('On Duty'), $duty->clock_in_at);
+                $events[] = $this->event($duty, $name, 'in', __('Clocked In'), $duty->clock_in_at);
             }
 
             if ($duty->clock_out_at !== null && $duty->clock_out_at->greaterThanOrEqualTo($startOfToday)) {
-                $events[] = $this->event($duty, $name, 'out', __('Off Duty'), $duty->clock_out_at);
+                $events[] = $this->event($duty, $name, 'out', __('Clocked Out'), $duty->clock_out_at);
             }
         }
 
@@ -106,7 +106,7 @@ class KioskService
     }
 
     /**
-     * How many people are On Duty right now (open duties), for the kiosk's live counter.
+     * How many people are clocked in right now (open duties), for the kiosk's live counter.
      */
     public function onDutyCount(): int
     {

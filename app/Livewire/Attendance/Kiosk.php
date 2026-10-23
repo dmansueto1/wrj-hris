@@ -5,11 +5,13 @@ namespace App\Livewire\Attendance;
 use App\Exceptions\Attendance\AttendanceException;
 use App\Exceptions\Attendance\ProjectNotOngoingException;
 use App\Livewire\Attendance\Concerns\ReadsBrowserLocation;
+use App\Livewire\Attendance\Concerns\TakesAttendancePhoto;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AttendanceService;
 use App\Services\KioskService;
+use App\Support\AttendancePhotos;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -33,6 +35,7 @@ use Livewire\Component;
 class Kiosk extends Component
 {
     use ReadsBrowserLocation;
+    use TakesAttendancePhoto;
 
     /** How long a verified worker has to press Clock In / Clock Out. */
     public const VERIFIED_FOR_SECONDS = 120;
@@ -41,7 +44,12 @@ class Kiosk extends Component
 
     public string $password = '';
 
-    public ?int $projectId = null;
+    /**
+     * The Ongoing project picked for clock-in, as the select's value. Empty (not null) so the
+     * "Select project" placeholder is the selected option; with null the browser shows the first
+     * project while this stays empty, and the Clock In button stays disabled.
+     */
+    public string $projectId = '';
 
     /** The worker whose credentials were just checked. Locked: the browser cannot change it. */
     #[Locked]
@@ -70,7 +78,7 @@ class Kiosk extends Component
 
         $this->verifiedUserId = $user->id;
         $this->verifiedAt = now()->getTimestamp();
-        $this->projectId = null;
+        $this->projectId = '';
     }
 
     public function clockIn(AttendanceService $attendance, mixed $lat = null, mixed $lng = null): void
@@ -81,8 +89,9 @@ class Kiosk extends Component
             return;
         }
 
-        $this->validate(['projectId' => ['required', 'integer']], [
+        $this->validate(['projectId' => ['required', 'integer'], ...$this->photoRules()], [
             'projectId.required' => __('Choose the project you are working on.'),
+            ...$this->photoMessages(),
         ]);
 
         $project = Project::query()->find($this->projectId);
@@ -92,9 +101,11 @@ class Kiosk extends Component
                 throw new ProjectNotOngoingException;
             }
 
-            $duty = $attendance->clockIn($user, $project, ...$this->location($lat, $lng));
+            [$latitude, $longitude] = $this->location($lat, $lng);
 
-            $this->finish(__(':name — On Duty at :time', [
+            $duty = $this->withStoredPhoto($user, 'in', fn (?string $photoPath) => $attendance->clockIn($user, $project, $latitude, $longitude, $photoPath));
+
+            $this->finish(__(':name — Clocked In at :time', [
                 'name' => KioskService::nameFor($user->first_name, $user->last_name),
                 'time' => $duty->clock_in_at->format('g:i A'),
             ]));
@@ -109,10 +120,14 @@ class Kiosk extends Component
             return;
         }
 
-        $this->attempt(function () use ($attendance, $user, $lat, $lng) {
-            $duty = $attendance->clockOut($user, ...$this->location($lat, $lng));
+        $this->validate($this->photoRules(), $this->photoMessages());
 
-            $this->finish(__(':name — Off Duty at :time', [
+        $this->attempt(function () use ($attendance, $user, $lat, $lng) {
+            [$latitude, $longitude] = $this->location($lat, $lng);
+
+            $duty = $this->withStoredPhoto($user, 'out', fn (?string $photoPath) => $attendance->clockOut($user, $latitude, $longitude, $photoPath));
+
+            $this->finish(__(':name — Clocked Out at :time', [
                 'name' => KioskService::nameFor($user->first_name, $user->last_name),
                 'time' => $duty->clock_out_at?->format('g:i A') ?? '',
             ]));
@@ -153,6 +168,7 @@ class Kiosk extends Component
     {
         return view('livewire.attendance.kiosk', [
             'displayName' => $this->user ? KioskService::nameFor($this->user->first_name, $this->user->last_name) : null,
+            'photoRequired' => AttendancePhotos::required(),
         ]);
     }
 
@@ -192,6 +208,10 @@ class Kiosk extends Component
         } catch (ValidationException $e) {
             $this->addError('kiosk', $e->validator->errors()->first());
         }
+
+        // Close the photo modal either way, so a rule message shows on the page.
+        Flux::modal('kiosk-photo-in')->close();
+        Flux::modal('kiosk-photo-out')->close();
     }
 
     /**

@@ -26,7 +26,7 @@
             @if ($this->openSession)
                 @php($session = $this->openSession)
                 <div class="flex flex-col items-center gap-5 text-center">
-                    <x-status-badge color="green">{{ __('Clocked in') }}</x-status-badge>
+                    <x-status-badge color="green">{{ __('Clocked In') }}</x-status-badge>
 
                     <div>
                         <p class="text-sm text-zinc-500">{{ __('Working on') }}</p>
@@ -50,44 +50,36 @@
                         <p class="mt-1 text-sm text-zinc-500">{{ __('since :time', ['time' => $session->clock_in_at->format('g:i A')]) }}</p>
                     </div>
 
-                    <flux:modal.trigger name="confirm-clock-out">
-                        <button
-                            type="button"
-                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
-                            wire:loading.attr="disabled"
-                            x-bind:disabled="busy"
-                            data-test="clock-out-button"
-                        >
-                            <flux:icon icon="stop-circle" class="size-5" />
-                            {{ __('Clock Out') }}
-                        </button>
-                    </flux:modal.trigger>
+                    @if ($photoRequired)
+                        <x-photo-step-note action="out" class="w-full text-start" />
+                    @endif
+
+                    {{-- Opens the confirmation; the camera step is inside it when a photo is required. --}}
+                    <button
+                        type="button"
+                        class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
+                        x-on:click="$flux.modal('confirm-clock-out').show()"
+                        wire:loading.attr="disabled"
+                        x-bind:disabled="busy"
+                        data-test="clock-out-button"
+                    >
+                        <flux:icon icon="stop-circle" class="size-5" />
+                        {{ __('Clock Out') }}
+                    </button>
                 </div>
 
-                <flux:modal name="confirm-clock-out" class="max-w-sm">
-                    <div class="flex flex-col gap-5">
-                        <div>
-                            <flux:heading size="lg">{{ __('Clock out now?') }}</flux:heading>
-                            <flux:text class="mt-2">{{ __('This ends your duty on :project.', ['project' => $session->project->name]) }}</flux:text>
-                        </div>
-                        <div class="flex flex-col gap-3 sm:flex-row-reverse">
-                            <button
-                                type="button"
-                                class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
-                                x-on:click="clock('clockOut')"
-                                x-bind:disabled="busy"
-                                wire:loading.attr="disabled"
-                                data-test="confirm-clock-out-button"
-                            >
-                                <span x-show="! busy">{{ __('Yes, clock out') }}</span>
-                                <span x-show="busy" x-cloak>{{ __('Saving…') }}</span>
-                            </button>
-                            <flux:modal.close>
-                                <flux:button class="h-12 w-full">{{ __('Cancel') }}</flux:button>
-                            </flux:modal.close>
-                        </div>
-                    </div>
-                </flux:modal>
+                <x-clock-photo-modal
+                    name="confirm-clock-out"
+                    action="clockOut"
+                    tone="danger"
+                    :title="__('Clock out now?')"
+                    :description="$photoRequired
+                        ? __('Take a photo of yourself. This ends your attendance on :project.', ['project' => $session->project->name])
+                        : __('This ends your attendance on :project.', ['project' => $session->project->name])"
+                    :confirm-label="__('Yes, clock out')"
+                    :with-camera="$photoRequired"
+                    confirm-test="confirm-clock-out-button"
+                />
             @else
                 <div class="flex flex-col gap-5">
                     <div>
@@ -101,7 +93,7 @@
                         {{-- A dropdown handles any number of projects; on phones it opens the device's own picker. --}}
                         <flux:field>
                             <flux:label>{{ __('Project') }}</flux:label>
-                            <flux:select wire:model="projectId" :placeholder="__('Choose the project you are working on…')" data-test="clock-project-select">
+                            <flux:select wire:model="projectId" :placeholder="__('Select project')" data-test="clock-project-select">
                                 @foreach ($this->projects as $project)
                                     <flux:select.option :value="$project->id">{{ $project->code }} · {{ $project->name }}</flux:select.option>
                                 @endforeach
@@ -111,11 +103,16 @@
                     @endif
 
                     @if ($this->projects->isNotEmpty())
+                        @if ($photoRequired)
+                            <x-photo-step-note action="in" />
+                        @endif
+
+                        {{-- Enabled once a project is chosen. With a photo required it opens the camera modal. --}}
                         <button
                             type="button"
                             class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gold px-5 font-semibold text-brand-navy shadow-card transition-colors duration-150 hover:bg-brand-orange hover:text-white disabled:opacity-60"
-                            x-on:click="clock('clockIn')"
-                            x-bind:disabled="busy"
+                            x-on:click="@js($photoRequired) ? $flux.modal('clock-in-photo').show() : clock('clockIn')"
+                            x-bind:disabled="busy || ! $wire.projectId"
                             wire:loading.attr="disabled"
                             data-test="clock-in-button"
                         >
@@ -123,6 +120,17 @@
                             <span x-show="! busy">{{ __('Clock In') }}</span>
                             <span x-show="busy" x-cloak>{{ __('Saving…') }}</span>
                         </button>
+
+                        @if ($photoRequired)
+                            <x-clock-photo-modal
+                                name="clock-in-photo"
+                                action="clockIn"
+                                :title="__('Take your photo')"
+                                :description="__('A photo of you is saved with your clock in.')"
+                                :confirm-label="__('Clock In')"
+                                confirm-test="confirm-clock-in-button"
+                            />
+                        @endif
                     @endif
                 </div>
             @endif
@@ -140,7 +148,7 @@
             </div>
 
             @if ($this->today['sessions']->isEmpty())
-                <p class="mt-4 text-sm text-zinc-500">{{ __('No duty yet today.') }}</p>
+                <p class="mt-4 text-sm text-zinc-500">{{ __('No attendance yet today.') }}</p>
             @else
                 <ol class="mt-4 flex flex-col gap-3">
                     @foreach ($this->today['sessions'] as $session)
@@ -157,7 +165,7 @@
                                 @if ($session->hours_worked !== null)
                                     {{ $session->hours_worked }} {{ __('hrs') }}
                                 @else
-                                    <x-status-badge color="green">{{ __('On Duty') }}</x-status-badge>
+                                    <x-status-badge color="green">{{ __('Clocked In') }}</x-status-badge>
                                 @endif
                             </span>
                         </li>

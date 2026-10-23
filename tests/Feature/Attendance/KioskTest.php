@@ -136,7 +136,7 @@ class KioskTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('username', '')
             ->assertSet('password', '')
-            ->assertSet('projectId', null)
+            ->assertSet('projectId', '')
             ->assertSet('verifiedUserId', null)
             ->assertSet('verifiedAt', null)
             ->assertDispatched('kiosk-duty-recorded');
@@ -160,7 +160,7 @@ class KioskTest extends TestCase
         $this->travelTo('2026-03-02 11:30:00');
         $this->verify($worker->username)
             ->assertSee('Riverside Townhomes')
-            ->assertSee('On Duty since 7:00 AM')
+            ->assertSee('Clocked In since 7:00 AM')
             ->assertSeeHtml('data-test="kiosk-clock-out-button"')
             ->assertDontSeeHtml('data-test="kiosk-clock-in-button"')
             ->call('clockOut')
@@ -251,7 +251,7 @@ class KioskTest extends TestCase
             ->assertSet('verifiedUserId', null)
             ->assertSet('verifiedAt', null)
             ->assertSet('username', '')
-            ->assertSet('projectId', null)
+            ->assertSet('projectId', '')
             ->assertSeeHtml('data-test="kiosk-continue-button"');
     }
 
@@ -290,9 +290,28 @@ class KioskTest extends TestCase
         Project::factory()->onHold()->create(['code' => 'PRJ-009', 'name' => 'Paused Warehouse']);
 
         $this->verify($worker->username)
+            ->assertSet('projectId', '')
             ->assertSeeHtml('data-test="kiosk-project-select"')
             ->assertSeeHtml('value="'.$ongoing->id.'"')
+            ->assertSeeHtml('<option value="" disabled selected class="placeholder">Select project</option>')
             ->assertSee('PRJ-001 · Riverside Townhomes')
             ->assertDontSee('Paused Warehouse');
+    }
+
+    public function testTheSelectProjectPlaceholderMatchesTheEmptyValueSoTheFirstProjectIsNotShownAsChosen(): void
+    {
+        // A null value matches no <option>, so the browser shows the first project while
+        // the component has none, and the Clock In button stays disabled.
+        $worker = User::factory()->worker()->create();
+
+        $project = Project::factory()->ongoing()->create();
+
+        $this->verify($worker->username)
+            ->assertSet('projectId', '')
+            ->set('projectId', (string) $project->id)
+            ->call('clockIn')
+            ->assertHasNoErrors();
+
+        $this->assertSame($project->id, $worker->attendances()->sole()->project_id);
     }
 }

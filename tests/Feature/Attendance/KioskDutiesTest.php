@@ -40,13 +40,13 @@ class KioskDutiesTest extends TestCase
         $rows = app(KioskService::class)->recentDuties(10);
 
         $this->assertCount(10, $rows);
-        $this->assertSame(['Worker5 T.', 'Off Duty', '12:30 PM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
-        $this->assertSame(['Worker5 T.', 'On Duty', '12:00 PM'], [$rows[1]['name'], $rows[1]['type'], $rows[1]['time']]);
-        $this->assertSame(['Worker1 T.', 'On Duty', '8:00 AM'], [$rows[9]['name'], $rows[9]['type'], $rows[9]['time']]);
+        $this->assertSame(['Worker5 T.', 'Clocked Out', '12:30 PM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
+        $this->assertSame(['Worker5 T.', 'Clocked In', '12:00 PM'], [$rows[1]['name'], $rows[1]['type'], $rows[1]['time']]);
+        $this->assertSame(['Worker1 T.', 'Clocked In', '8:00 AM'], [$rows[9]['name'], $rows[9]['type'], $rows[9]['time']]);
         $this->assertNotContains('Yesterday P.', array_column($rows->all(), 'name'));
     }
 
-    public function testAnOpenDutyGivesOnlyAnOnDutyRow(): void
+    public function testAnOpenAttendanceGivesOnlyAClockedInRow(): void
     {
         $this->travelTo('2026-03-02 09:00:00');
         Attendance::factory()->open()->for(User::factory()->worker()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']))->create([
@@ -57,10 +57,10 @@ class KioskDutiesTest extends TestCase
         $rows = app(KioskService::class)->recentDuties(10);
 
         $this->assertCount(1, $rows);
-        $this->assertSame(['Juan D.', 'On Duty', '7:02 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
+        $this->assertSame(['Juan D.', 'Clocked In', '7:02 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
     }
 
-    public function testAnOvernightDutyClockedOutThisMorningShowsItsOffDutyRow(): void
+    public function testAnOvernightAttendanceClockedOutThisMorningShowsItsClockedOutRow(): void
     {
         $this->travelTo('2026-03-03 06:30:00');
         Attendance::factory()->for(User::factory()->worker()->create(['first_name' => 'Night', 'last_name' => 'Shift']))->create([
@@ -72,10 +72,10 @@ class KioskDutiesTest extends TestCase
         $rows = app(KioskService::class)->recentDuties(10);
 
         $this->assertCount(1, $rows);
-        $this->assertSame(['Night S.', 'Off Duty', '6:00 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
+        $this->assertSame(['Night S.', 'Clocked Out', '6:00 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
     }
 
-    public function testVoidDutiesAreLeftOut(): void
+    public function testVoidAttendanceIsLeftOut(): void
     {
         $this->travelTo('2026-03-02 12:00:00');
         Attendance::factory()->create(['work_date' => '2026-03-02', 'status' => Attendance::STATUS_VOID]);
@@ -92,10 +92,10 @@ class KioskDutiesTest extends TestCase
         ]);
 
         Livewire::test(KioskDuties::class)
-            ->assertSee("Today's duties")
+            ->assertSee("Today's attendance")
             ->assertSee('Juan D.')
             ->assertSee('Riverside Townhomes')
-            ->assertSee('Off Duty')
+            ->assertSee('Clocked Out')
             ->assertDontSee('Dela Cruz')
             ->assertDontSee('EMP-0042')
             ->assertDontSee('₱')
@@ -107,7 +107,7 @@ class KioskDutiesTest extends TestCase
         Livewire::test(KioskDuties::class)->assertSee('No one has clocked in yet today.');
     }
 
-    public function testTheLiveCounterShowsHowManyAreOnDutyNow(): void
+    public function testTheLiveCounterShowsHowManyAreClockedInNow(): void
     {
         Attendance::factory()->open()->count(3)->create();
         Attendance::factory()->create();
@@ -116,6 +116,6 @@ class KioskDutiesTest extends TestCase
 
         Livewire::test(KioskDuties::class)
             ->assertSeeHtml('data-test="kiosk-on-duty-count"')
-            ->assertSee('3 on duty now');
+            ->assertSee('3 clocked in now');
     }
 }
