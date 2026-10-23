@@ -4,6 +4,30 @@
  * with (lat, lng, ...args). `busy` disables the buttons while saving.
  */
 document.addEventListener('alpine:init', () => {
+    /**
+     * runningTime: worked time of an attendance that is still Clocked In, e.g. "2h 05m 09s",
+     * counted from its clock-in (milliseconds) and refreshed every second.
+     */
+    window.Alpine.data('runningTime', (start) => ({
+        elapsed: '',
+        timer: null,
+
+        init() {
+            this.tick();
+            this.timer = setInterval(() => this.tick(), 1000);
+        },
+
+        destroy() {
+            clearInterval(this.timer);
+        },
+
+        tick() {
+            const seconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
+            const pad = (value) => String(value).padStart(2, '0');
+            this.elapsed = Math.floor(seconds / 3600) + 'h ' + pad(Math.floor((seconds % 3600) / 60)) + 'm ' + pad(seconds % 60) + 's';
+        },
+    }));
+
     window.Alpine.data('clockPad', () => ({
         busy: false,
 

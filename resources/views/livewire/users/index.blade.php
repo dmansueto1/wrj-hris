@@ -92,10 +92,10 @@
 
                     <flux:table.rows>
                         @foreach ($this->users as $user)
-                            <flux:table.row :key="$user->id" class="h-16">
+                            <flux:table.row :key="$user->id">
                                 <flux:table.cell>
                                     <a href="{{ route('users.edit', $user) }}" wire:navigate class="group flex items-center gap-3">
-                                        <x-avatar :name="$user->name" :initials="$user->initials()" />
+                                        <x-avatar :name="$user->name" :initials="$user->initials()" size="sm" />
                                         <span class="min-w-0">
                                             <span class="block truncate font-semibold text-brand-navy group-hover:text-brand-blue">{{ $user->name }}</span>
                                             <span class="block truncate text-xs text-zinc-500">{{ $user->username }}</span>

@@ -124,7 +124,7 @@ select:focus[data-flux-control] {
     background-size: 24px 24px, 24px 24px, 100% 100%;
 }
 
-/* Tables: small uppercase headers, tabular numbers, row hover. */
+/* Tables: small uppercase headers, compact rows, tabular numbers, row hover. */
 [data-flux-table] th {
     font-size: 0.6875rem;
     font-weight: 600;
@@ -135,6 +135,12 @@ select:focus[data-flux-control] {
 
 [data-flux-table] td {
     font-variant-numeric: tabular-nums;
+}
+
+/* Compact rows on every table: Flux's default cell padding is 0.75rem top and bottom. */
+[data-flux-table] th,
+[data-flux-table] td {
+    padding-block: 0.375rem;
 }
 
 [data-flux-table] tbody tr {

@@ -22,8 +22,8 @@ class Navigation
     {
         return [
             ['label' => 'Clock In/Out', 'url' => 'clock', 'route' => 'clock', 'group' => 'Time', 'icon' => 'clock', 'permissions' => ['attendance.clock'], 'component' => Attendance\Clock::class],
-            ['label' => 'My Attendance', 'url' => 'attendance/mine', 'route' => 'attendance.mine', 'group' => 'Time', 'icon' => 'calendar-days', 'permissions' => ['attendance.view-own']],
-            ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'group' => 'Time', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all']],
+            ['label' => 'My Attendance', 'url' => 'attendance/mine', 'route' => 'attendance.mine', 'group' => 'Time', 'icon' => 'calendar-days', 'permissions' => ['attendance.view-own'], 'component' => Attendance\Mine::class],
+            ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'group' => 'Time', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all'], 'component' => Attendance\Index::class],
             ['label' => 'Projects', 'url' => 'projects', 'route' => 'projects.index', 'group' => 'Operations', 'icon' => 'building-office-2', 'permissions' => ['expenses.view', 'projects.manage'], 'component' => Projects\Index::class],
             ['label' => 'Material Entries', 'url' => 'material-entries', 'route' => 'material-entries.index', 'group' => 'Operations', 'icon' => 'shopping-cart', 'permissions' => ['material-entries.create']],
             ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'group' => 'Operations', 'icon' => 'cube', 'permissions' => ['materials.manage'], 'component' => Materials\Index::class],

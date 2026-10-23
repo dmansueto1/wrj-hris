@@ -114,14 +114,11 @@ class KioskService
     }
 
     /**
-     * First name and last initial for the public kiosk screen ("Juan Dela Cruz" → "Juan D.").
+     * The full name shown on the kiosk ("Juan" + "Dela Cruz" → "Juan Dela Cruz"), extra spaces removed.
      */
     public static function nameFor(string $firstName, string $lastName): string
     {
-        $first = trim($firstName);
-        $initial = Str::upper(mb_substr(trim($lastName), 0, 1));
-
-        return $initial === '' ? $first : "{$first} {$initial}.";
+        return Str::squish("{$firstName} {$lastName}");
     }
 
     /**

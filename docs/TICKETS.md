@@ -76,6 +76,7 @@ When finished, list every file you created or changed.
 | T-17 | Audit log | Audit, Reports & Release | T-12, T-15 |
 | T-18 | Reports and exports | Audit, Reports & Release | T-16 |
 | T-19 | Demo data, QA and release readiness | Audit, Reports & Release | All |
+| T-20 | Roles and permissions screen | Additional | T-02, T-05, T-06 |
 
 ## Epic 1 – Foundation
 
@@ -418,10 +419,11 @@ This is the heart of Phase 1: multiple clock in/out sessions per day, each coste
 **Build**
 
 - On screen, a clock-in-to-clock-out period is an "attendance" (one attendance record), never a "session" (CLAUDE.md wording rule); "Clock In" / "Clock Out" stay for the actions.
-- `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), attendance grouped by day with project, in, out, hours and status, plus daily and range total hours. Workers do not see peso amounts or photos.
-- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, photos, status; a totals row for hours and labor cost over all filtered attendance records (not just the current page); paginated with rows per page (10 / 25 / 50 / 100, default 10).
+- `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), attendance grouped by day with project, in, out, worked time and status, plus a "Total" row with the range's total hours under the Worked time column. Workers do not see peso amounts or photos.
+- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, name, project, in, out, worked time, rate, labor cost, photos, status; a "Total" row with the labor cost over all filtered attendance records (not just the current page), and the total hours in the stat cards; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Photos column: small round thumbnails of the clock-in and clock-out photos loaded from `route('attendance.photo', [$attendance, 'in'|'out'])` (`loading="lazy"`); clicking a thumbnail opens it full size in a modal. An attendance record without a photo shows a muted "No photo" placeholder; a Clocked In row shows only the clock-in photo.
-- Status badges with on-screen labels: open "Clocked In" blue, closed "Clocked Out" green, adjusted "Adjusted" purple, flagged "Flagged" red, void "Void" gray (struck through).
+- Worked time: completed attendance shows its hours with the unit (`4.50 h`); a Clocked In record shows a live running time from its clock-in, to the second (`2h 05m 09s`).
+- Status badges with on-screen labels: open "Clocked In" green, closed "Clocked Out" gray (the same colors as the clock screens and kiosk), adjusted "Adjusted" purple, flagged "Flagged" red, void "Void" gray (struck through).
 
 **Acceptance criteria**
 
@@ -707,17 +709,17 @@ The last three tickets make every sensitive change traceable, give the client ex
 - `App\Services\KioskService` (business logic stays out of the component):
   - `verify(Request $request, string $username, string $password): User` — uses `LoginRateLimiter` (`tooManyAttempts` → throw with the `auth.lockout` message and minutes remaining; `increment` on a wrong password; `clear` on success) and `AuthenticateUser`; throws for wrong credentials (`auth.failed`), an inactive user (`auth.inactive`) and a user without `attendance.clock`. A user with `must_change_password = true` **may** use the kiosk.
   - `recentDuties(int $limit = 10): Collection` — today's latest clock events across all users, newest first: one row per clock-in (`clock_in_at`, type "Clocked In") and one per clock-out (`clock_out_at`, type "Clocked Out") of non-void attendances, counting only events whose time is today (so an overnight attendance's morning clock-out is listed even though its work_date is yesterday); each row has the display name, project name, type and time.
-  - `displayName(User $user): string` — first name + last initial ("Juan D."), so the public screen does not show full names.
+  - `displayName(User $user): string` — the full name, first and last ("Juan Dela Cruz").
 - `App\Livewire\Attendance\Kiosk` + `resources/views/livewire/attendance/kiosk.blade.php`, a two-step flow:
   1. **Identify:** large Username and Password fields and a "Continue" button. On submit, call `KioskService::verify`. Errors show in the red callout above the fields (wrong credentials, lockout with minutes remaining, inactive). The password property is cleared immediately after every attempt, success or not.
-  2. **Act:** show "Hi, Juan D." and the user's current state from `AttendanceService::openSessionFor`:
+  2. **Act:** show "Hi, Juan Dela Cruz" and the user's current state from `AttendanceService::openSessionFor`:
      - not clocked in → a dropdown of Ongoing projects ("CODE · Name"; the phone's own picker scrolls, so many projects are fine) and an amber **Clock In** button;
      - clocked in → the project, "Clocked In since 7:00 AM" with a running timer, and a red **Clock Out** button (no extra confirm step; the worker just verified with their password).
      - A "Not you? Start over" link returns to step 1 and clears everything.
   - The verified user is kept only as a `#[Locked]` user ID plus a verified-at time; the Clock In/Out action re-checks that the ID is set and was verified less than 2 minutes ago, otherwise it returns to step 1 with "Please enter your username and password again."
   - Clock In/Out calls `AttendanceService::clockIn` / `clockOut` with the browser location (reuse the `locate()` helper). Rule violations (`AttendanceException`) show in the callout.
-  - **Right after a successful clock in/out**, reset every field and the verified user, return to step 1, and show a toast ("Juan D. — Clocked In at 7:02 AM" / "Juan D. — Clocked Out at 11:30 AM"). The worker confirms through the live list.
-- Live attendance list on the right (below the form on phones): heading "Today's attendance", up to **10** rows from `KioskService::recentDuties(10)`, each with `<x-avatar>`, "Juan D.", an `<x-status-badge>` "Clocked In" (green) or "Clocked Out" (zinc), the project name and the time (`g:i A`). Refreshes with `wire:poll.10s` and immediately after the kiosk's own clock in/out; the newest row is highlighted for a few seconds. Empty state: "No one has clocked in yet today." Never show rates, hours, costs or employee numbers.
+  - **Right after a successful clock in/out**, reset every field and the verified user, return to step 1, and show a toast ("Juan Dela Cruz — Clocked In at 7:02 AM" / "Juan Dela Cruz — Clocked Out at 11:30 AM"). The worker confirms through the live list.
+- Live attendance list on the right (below the form on phones): heading "Today's attendance", up to **10** rows from `KioskService::recentDuties(10)`, each with `<x-avatar>`, "Juan Dela Cruz", an `<x-status-badge>` "Clocked In" (green) or "Clocked Out" (zinc), the project name and the time (`g:i A`). Refreshes with `wire:poll.10s` and immediately after the kiosk's own clock in/out; the newest row is highlighted for a few seconds. Empty state: "No one has clocked in yet today." Never show rates, hours, costs or employee numbers.
 - Phone and tablet layout: standard-size fields and full-width buttons 48 px tall (comfortable touch targets, not oversized); on tablet landscape and desktop the form is on the left and the live list on the right.
 - Look and feel ("alive"): navy hero band with a blueprint grid and gold line like the login page, a large live clock with a time-of-day greeting, a Sign in → Clock step indicator, a pulsing live dot and an "N clocked in now" counter (`KioskService::onDutyCount()`), new rows sliding in; all motion respects reduced-motion.
 
@@ -726,7 +728,7 @@ The last three tickets make every sensitive change traceable, give the client ex
 - [ ] `/kiosk` opens without logging in, on phone (375 px) and tablet widths.
 - [ ] Wrong username or password shows "These credentials do not match our records." and no button.
 - [ ] After 5 wrong passwords for the same username from the same device, the 6th attempt shows the 15-minute lockout message (the same lockout as the login page).
-- [ ] A worker who is not clocked in sees Clock In and the Ongoing projects only; after clocking in, the fields clear and "Juan D. · Clocked In · Riverside Townhomes · 7:02 AM" is the top row of the live list.
+- [ ] A worker who is not clocked in sees Clock In and the Ongoing projects only; after clocking in, the fields clear and "Juan Dela Cruz · Clocked In · Riverside Townhomes · 7:02 AM" is the top row of the live list.
 - [ ] The same worker entering their credentials again sees Clock Out; after clocking out, the fields clear and a "Clocked Out" row for them is on top.
 - [ ] An inactive user gets the inactive message; a user with a temporary password (`must_change_password`) can still clock in.
 - [ ] The live list shows at most 10 rows, only today's, newest first, with no money or employee numbers.
@@ -745,7 +747,7 @@ The last three tickets make every sensitive change traceable, give the client ex
 - Feature: tampered request — calling `clockIn` without verifying, or with a verification older than 2 minutes (`$this->travel(3)->minutes()`) → back to step 1, nothing created; a non-Ongoing project ID → `ProjectNotOngoingException` message, nothing created.
 - Feature: "Start over" clears the verified user and fields.
 - Feature: `recentDuties(10)` with 12 clock events today and 2 yesterday → 10 rows, newest first, none from yesterday; an attendance record clocked in and out today gives both a "Clocked In" and a "Clocked Out" row; void attendances are left out.
-- Unit: `displayName` — "Juan" + "Dela Cruz" → "Juan D."; "Maria" + "Santos" → "Maria S.".
+- Unit: `displayName` — "Juan" + "Dela Cruz" → "Juan Dela Cruz"; "Maria" + "Santos" → "Maria Santos".
 - Feature (data provider): admin, staff and worker can each clock in and out at the kiosk.
 
 **Verify:** open http://wrj-hris.test/kiosk in a private window (not logged in), clock a worker in and out, and check the live list; try 6 wrong passwords; repeat at 375 px width.
@@ -809,6 +811,81 @@ The last three tickets make every sensitive change traceable, give the client ex
 - Unit: `AttendancePhotos::rules()` is `required` when required and `nullable` when not.
 
 **Verify:** on a phone or tablet, clock in at `/kiosk` and `/clock`, allow the camera, take the photo, then open `/attendance/{id}/photo/in` as Admin; deny the camera once and confirm the button stays disabled with the message.
+
+#### Definition of done
+
+- [ ] All acceptance criteria met
+- [ ] All listed tests written and passing; full suite passes with `php artisan test`
+- [ ] Screens work at phone width (375 px) and desktop width
+- [ ] No errors in the browser console or `storage/logs/laravel.log`
+- [ ] Code formatted with `./vendor/bin/pint`
+
+### T-20 – Roles and permissions screen
+
+**Goal:** an Admin opens Admin → Roles & Permissions, ticks which permissions the Staff and Worker roles have, and saves; the menus, pages and actions of every user with that role follow the change at once.
+
+**Depends on:** T-02, T-05, T-06
+
+**Current implementation**
+
+- `database/seeders/RolesAndPermissionsSeeder.php` (T-02) holds the PRD section 3 table in `ROLE_PERMISSIONS` (roles `admin`, `staff`, `worker`; 10 permissions: `attendance.clock`, `attendance.view-own`, `attendance.view-all`, `attendance.correct`, `users.manage`, `projects.manage`, `materials.manage`, `material-entries.create`, `expenses.view`, `reports.export`). `run()` calls `Role::firstOrCreate(...)->syncPermissions($permissions)`, so **every run resets each role to the defaults** — it would wipe out changes made on the new screen and must change.
+- `UserFactory::withRole()` runs the seeder when the role does not exist yet; `tests/Feature/RolesAndPermissionsTest.php` checks each role has exactly the table above after seeding (still true for a fresh seed).
+- Every route and Livewire action already checks permissions, not roles: menu items and their route middleware come from `App\Support\Navigation::items()` / `middlewareFor()` (`permission:…`), and components check `Auth::user()->can('…')` in `boot()`. So changing a role's permissions changes what its users can see and do, with no other code change.
+- `App\Models\User::ROLES` = `['admin', 'staff', 'worker']`; T-06 lets the Admin pick a user's role on `/users/create` and `/users/{user}/edit` (`users.manage`, behind `password.confirm`). Roles themselves are not created or renamed in this ticket.
+- `spatie/laravel-activitylog` is installed and its `activity_log` table is migrated, but nothing writes to it yet (T-17 adds the History panels).
+- Page building blocks to reuse: `<x-page-header>`, `<x-stat-card>`, `<x-data-card>`, `<x-status-badge>`, `btn-accent`, `flux:checkbox`, `flux:modal`, `Flux::toast()`.
+
+**Build**
+
+- New permission `roles.manage`, Admin only:
+  - Add it to `RolesAndPermissionsSeeder::ROLE_PERMISSIONS['admin']`.
+  - Change `run()` so it never overwrites saved changes: create missing permissions and roles with `firstOrCreate`; give a role its default permissions only when the role was just created (`wasRecentlyCreated`), and give a permission to its default roles only when the permission was just created. Running the seeder again on an edited database changes nothing; a permission added by a later ticket still reaches its default roles once.
+- `App\Support\PermissionCatalog` (labels only, no logic): for each permission name, a short label, a one-line description in simple English, and a group, in display order:
+  - Time: `attendance.clock` "Clock in and out", `attendance.view-own` "See own attendance", `attendance.view-all` "See everyone's attendance", `attendance.correct` "Correct attendance".
+  - Operations: `projects.manage` "Manage projects", `materials.manage` "Manage materials", `material-entries.create` "Record material purchases", `expenses.view` "See project expenses".
+  - Admin: `users.manage` "Manage users and hourly rates", `reports.export` "Export reports", `roles.manage` "Manage roles and permissions".
+  - `PermissionCatalog::all()` returns them grouped; a unit test fails if a permission in the seeder has no catalog entry.
+- `App\Services\RolePermissionService`:
+  - `matrix(): array<string, list<string>>` — current permission names per role (`admin`, `staff`, `worker`).
+  - `update(array $grants, User $admin): void` — `$grants` is `['staff' => [...], 'worker' => [...]]`. Inside a DB transaction: reject unknown roles or permission names (`ValidationException`); the `admin` role is never changed (it always keeps every permission); `roles.manage` can never be given to `staff` or `worker`; `syncPermissions()` only on roles whose set actually changed; then `app(PermissionRegistrar::class)->forgetCachedPermissions()`.
+  - `restoreDefaults(User $admin): void` — sets `staff` and `worker` back to `RolesAndPermissionsSeeder::ROLE_PERMISSIONS` through `update()`.
+  - Each changed role writes one activity: `activity('roles')->performedOn($role)->causedBy($admin)->withProperties(['old' => [...], 'new' => [...]])->log('Changed permissions')` (PRD 8 audit; T-17 shows it later).
+- Livewire `App\Livewire\Roles\Index` (class in `app/Livewire/Roles/Index.php`, view `resources/views/livewire/roles/index.blade.php`), `#[Title('Roles & Permissions')]`:
+  - `boot()`: `abort_unless(Auth::user()?->can('roles.manage'), 403)`; `save()` and `restoreDefaults()` also run behind that check.
+  - `public array $grants` (role → permission → bool) loaded from `matrix()`; `#[Computed] hasChanges` compares it with the saved matrix; `save()` calls `update()`, reloads `$grants`, and toasts "Permissions saved. Users see the change on their next page load."; `discard()` reloads the saved matrix.
+- Menu and route: add to `Navigation::items()` `['label' => 'Roles & Permissions', 'url' => 'roles', 'route' => 'roles.index', 'group' => 'Admin', 'icon' => 'shield-check', 'permissions' => ['roles.manage'], 'component' => Roles\Index::class, 'middleware' => ['password.confirm']]` (after Users, before Reports). The route is registered by the existing loop in `routes/web.php`.
+- Page design (standard pattern, light theme, brand tokens only):
+  - `<x-page-header>` "Roles & Permissions", description "Choose what each role can see and do. Admin always has every permission." Actions on the right: "Restore defaults" (secondary button, opens a confirm `flux:modal`: "Set Staff and Worker back to the standard permissions?") and "Save changes" (`btn-accent`, disabled until `hasChanges`).
+  - A row of three `<x-stat-card>`s, one per role: label "Admin" / "Staff" / "Worker", value ":count of :total permissions", note ":count users" (users with that role, archived users not counted).
+  - The matrix inside `<x-data-card>`: a `flux:table` with columns Permission (label in bold, description below in `text-zinc-500`), Admin, Staff, Worker (centered `flux:checkbox`), with a group heading row per group (Time / Operations / Admin, small uppercase, `bg-brand-page`). The Admin column is always checked and disabled with a lock icon and the tooltip "Admin always has every permission"; the Staff and Worker boxes on the `roles.manage` row are unchecked and disabled ("Only Admin can manage roles"). This is a fixed settings grid of 11 rows, so it is not paginated (exception to the rows-per-page rule).
+  - Phone (`md:hidden`): one card per permission with its label, description and three labeled checkboxes (Admin / Staff / Worker) in a row.
+  - While `hasChanges`, a sticky bar at the bottom of the card: "You have unsaved changes" with "Discard" and "Save changes".
+- Update existing tests that list every menu route or every permission so they include `roles.index` / `roles.manage` (e.g. `NavigationTest`, `RouteAuthorizationTest`, `RolesAndPermissionsTest`).
+
+**Acceptance criteria**
+
+- [ ] Admin sees "Roles & Permissions" under Admin in the sidebar; Staff and Worker do not, and get 403 on `/roles`.
+- [ ] Ticking "Manage materials" for Worker and saving lets a worker open `/materials` (200) and shows Materials in their menu; unticking it and saving gives 403 again.
+- [ ] The Admin column cannot be changed, and `roles.manage` cannot be given to Staff or Worker, even with a tampered Livewire request.
+- [ ] "Restore defaults" puts Staff and Worker back to exactly the PRD section 3 table.
+- [ ] Running `php artisan db:seed --class=RolesAndPermissionsSeeder` after a change keeps the change.
+- [ ] Each saved change to a role is in `activity_log` with the Admin as causer and the old and new permission lists.
+
+**Tests**
+
+- Unit: every permission in `RolesAndPermissionsSeeder::ROLE_PERMISSIONS` has a `PermissionCatalog` entry with a label, description and group, and the catalog has no extra names.
+- Feature (data provider): `/roles` — admin 200 (after password confirmation), staff 403, worker 403; guest redirected to login.
+- Feature: after a fresh seed, admin has all 11 permissions including `roles.manage`; staff and worker match the PRD table (update `RolesAndPermissionsTest`).
+- Feature: give `staff` an extra permission with `RolePermissionService::update()`, run the seeder again, and the extra permission is still there.
+- Feature: Livewire — tick `grants.worker.materials.manage`, `save()` → worker can open `/materials`; untick and save → 403.
+- Feature: Livewire — setting `grants.admin.users.manage` to false or `grants.staff.roles.manage` to true and calling `save()` leaves both unchanged (admin keeps it, staff never gets it).
+- Feature: `update()` with an unknown permission name throws a validation error and changes nothing.
+- Feature: `restoreDefaults()` after changes gives Staff and Worker exactly the PRD table.
+- Feature: one save that changes Staff writes one `activity_log` row with `causer_id` = the admin and properties `old` and `new`.
+- Feature: "Save changes" is disabled with no changes, enabled after ticking a box, and `discard()` restores the saved state.
+- Feature: a staff user calling the component's `save()` directly gets 403.
+
+**Verify:** log in as Admin → Admin → Roles & Permissions; tick "Manage materials" for Worker and save; log in as a worker in another browser and see Materials in the menu; untick, save, refresh and confirm it is gone; check a phone width of 375 px.
 
 #### Definition of done
 

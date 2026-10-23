@@ -40,9 +40,9 @@ class KioskDutiesTest extends TestCase
         $rows = app(KioskService::class)->recentDuties(10);
 
         $this->assertCount(10, $rows);
-        $this->assertSame(['Worker5 T.', 'Clocked Out', '12:30 PM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
-        $this->assertSame(['Worker5 T.', 'Clocked In', '12:00 PM'], [$rows[1]['name'], $rows[1]['type'], $rows[1]['time']]);
-        $this->assertSame(['Worker1 T.', 'Clocked In', '8:00 AM'], [$rows[9]['name'], $rows[9]['type'], $rows[9]['time']]);
+        $this->assertSame(['Worker5 Test', 'Clocked Out', '12:30 PM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
+        $this->assertSame(['Worker5 Test', 'Clocked In', '12:00 PM'], [$rows[1]['name'], $rows[1]['type'], $rows[1]['time']]);
+        $this->assertSame(['Worker1 Test', 'Clocked In', '8:00 AM'], [$rows[9]['name'], $rows[9]['type'], $rows[9]['time']]);
         $this->assertNotContains('Yesterday P.', array_column($rows->all(), 'name'));
     }
 
@@ -57,7 +57,7 @@ class KioskDutiesTest extends TestCase
         $rows = app(KioskService::class)->recentDuties(10);
 
         $this->assertCount(1, $rows);
-        $this->assertSame(['Juan D.', 'Clocked In', '7:02 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
+        $this->assertSame(['Juan Dela Cruz', 'Clocked In', '7:02 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
     }
 
     public function testAnOvernightAttendanceClockedOutThisMorningShowsItsClockedOutRow(): void
@@ -72,7 +72,7 @@ class KioskDutiesTest extends TestCase
         $rows = app(KioskService::class)->recentDuties(10);
 
         $this->assertCount(1, $rows);
-        $this->assertSame(['Night S.', 'Clocked Out', '6:00 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
+        $this->assertSame(['Night Shift', 'Clocked Out', '6:00 AM'], [$rows[0]['name'], $rows[0]['type'], $rows[0]['time']]);
     }
 
     public function testVoidAttendanceIsLeftOut(): void
@@ -93,10 +93,9 @@ class KioskDutiesTest extends TestCase
 
         Livewire::test(KioskDuties::class)
             ->assertSee("Today's attendance")
-            ->assertSee('Juan D.')
+            ->assertSee('Juan Dela Cruz')
             ->assertSee('Riverside Townhomes')
             ->assertSee('Clocked Out')
-            ->assertDontSee('Dela Cruz')
             ->assertDontSee('EMP-0042')
             ->assertDontSee('₱')
             ->assertDontSee('360.00');

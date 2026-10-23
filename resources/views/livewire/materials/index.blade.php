@@ -73,7 +73,7 @@
 
                     <flux:table.rows>
                         @foreach ($this->materials as $material)
-                            <flux:table.row :key="$material->id" class="h-14">
+                            <flux:table.row :key="$material->id">
                                 <flux:table.cell>
                                     <a href="{{ route('materials.edit', $material) }}" wire:navigate class="font-semibold text-brand-navy hover:text-brand-blue">{{ $material->name }}</a>
                                 </flux:table.cell>

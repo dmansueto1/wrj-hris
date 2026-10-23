@@ -245,4 +245,17 @@ class AttendanceServiceTest extends TestCase
         $this->assertInstanceOf(Project::class, $session->project);
         $this->assertTrue($session->adjustedBy->is($admin));
     }
+
+    public function testTodayTotalIsTheSumOfTheHoursShown(): void
+    {
+        $worker = User::factory()->worker()->create();
+        Attendance::factory()->count(3)->for($worker)->onDate(now()->toDateString())->create([
+            'minutes_worked' => 260,
+            'hours_worked' => '4.33',
+            'labor_cost' => '346.67',
+        ]);
+
+        // 4.33 + 4.33 + 4.33, the same as the My Attendance day total (not 780 minutes = 13.00).
+        $this->assertSame('12.99', app(AttendanceService::class)->today($worker)['total_hours']);
+    }
 }

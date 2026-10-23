@@ -18,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Behind a proxy (ngrok while testing on other devices, Nginx in production), use the
+        // forwarded host and https scheme so links, redirects and secure cookies are correct.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             EnsureUserIsActive::class,
             AdminStaffIdleTimeout::class,

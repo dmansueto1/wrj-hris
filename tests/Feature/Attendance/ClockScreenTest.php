@@ -295,4 +295,48 @@ class ClockScreenTest extends TestCase
 
         $this->assertSame($project->id, $worker->attendances()->sole()->project_id);
     }
+
+    public function testWhileClockedInTheWorkedTimeRunsToTheSecond(): void
+    {
+        $worker = User::factory()->worker()->create();
+        $this->actingAs($worker);
+        $this->travelTo('2026-03-02 07:00:00');
+        app(AttendanceService::class)->clockIn($worker, Project::factory()->ongoing()->create());
+        $this->travelTo('2026-03-02 09:05:09');
+
+        Livewire::test(Clock::class)
+            ->assertSeeHtml('data-test="clock-running-time"')
+            ->assertSeeHtml('runningTime('.now()->setTime(7, 0)->getTimestamp() * 1000 .')')
+            ->assertSee('Worked time')
+            ->assertSee('2h 05m 09s')
+            ->assertSee('Clocked In at 7:00 AM');
+    }
+
+    public function testTheTodayPanelShowsWorkedTimeWithTheUnitAndStatus(): void
+    {
+        $worker = User::factory()->worker()->create();
+        $this->actingAs($worker);
+        $this->travelTo('2026-03-02 13:00:00');
+        Attendance::factory()->for($worker)->create(['work_date' => '2026-03-02', 'clock_in_at' => '2026-03-02 07:00:00', 'clock_out_at' => '2026-03-02 11:30:00']);
+
+        Livewire::test(Clock::class)
+            ->assertSeeHtml('data-test="worked-hours">4.50 h')
+            ->assertSeeHtml('data-test="status-closed"')
+            ->assertSeeHtml('data-test="today-total">4.50</span>');
+    }
+
+    public function testTheTodayPanelShowsOnlyTheStatusForTheAttendanceStillClockedIn(): void
+    {
+        $worker = User::factory()->worker()->create();
+        $this->actingAs($worker);
+        $this->travelTo('2026-03-02 07:00:00');
+        app(AttendanceService::class)->clockIn($worker, Project::factory()->ongoing()->create());
+        $this->travelTo('2026-03-02 09:05:09');
+
+        // One running time only: the big Worked time card, not the Today list.
+        $html = Livewire::test(Clock::class)->html();
+        $this->assertSame(1, substr_count($html, 'runningTime('));
+        $this->assertStringNotContainsString('data-test="running-time"', $html);
+        $this->assertStringContainsString('data-test="status-open"', $html);
+    }
 }

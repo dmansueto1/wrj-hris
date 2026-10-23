@@ -34,20 +34,21 @@
                         <p class="font-mono text-xs text-zinc-500">{{ $session->project->code }}</p>
                     </div>
 
+                    {{-- Running worked time, to the second (runningTime in resources/js/app.js). --}}
                     <div
-                        x-data="{
-                            start: {{ $session->clock_in_at->getTimestamp() * 1000 }},
-                            elapsed: '',
-                            tick() {
-                                const minutes = Math.max(0, Math.floor((Date.now() - this.start) / 60000));
-                                this.elapsed = Math.floor(minutes / 60) + 'h ' + String(minutes % 60).padStart(2, '0') + 'm';
-                            },
-                        }"
-                        x-init="tick(); setInterval(() => tick(), 60000)"
-                        class="flex flex-col items-center"
+                        x-data="runningTime({{ $session->clock_in_at->getTimestamp() * 1000 }})"
+                        class="flex w-full flex-col items-center rounded-xl bg-success-soft px-4 py-5"
+                        data-test="clock-running-time"
                     >
-                        <p class="text-5xl font-bold tabular-nums tracking-tight text-brand-navy" x-text="elapsed">&nbsp;</p>
-                        <p class="mt-1 text-sm text-zinc-500">{{ __('since :time', ['time' => $session->clock_in_at->format('g:i A')]) }}</p>
+                        <p class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-success">
+                            <span class="relative flex size-2" aria-hidden="true">
+                                <span class="absolute inline-flex size-full rounded-full bg-success opacity-60 motion-safe:animate-ping"></span>
+                                <span class="relative inline-flex size-2 rounded-full bg-success"></span>
+                            </span>
+                            {{ __('Worked time') }}
+                        </p>
+                        <p class="mt-2 text-4xl font-bold tabular-nums tracking-tight text-brand-navy sm:text-5xl" x-text="elapsed">{{ $session->runningTimeLabel() }}</p>
+                        <p class="mt-1 text-sm text-zinc-600">{{ __('Clocked In at :time', ['time' => $session->clock_in_at->format('g:i A')]) }}</p>
                     </div>
 
                     @if ($photoRequired)
@@ -143,7 +144,7 @@
                 <p class="text-sm text-zinc-500">
                     {{ __('Total') }}
                     <span class="ms-1 text-lg font-bold tabular-nums text-brand-navy" data-test="today-total">{{ $this->today['total_hours'] }}</span>
-                    {{ __('hrs') }}
+                    h
                 </p>
             </div>
 
@@ -152,22 +153,28 @@
             @else
                 <ol class="mt-4 flex flex-col gap-3">
                     @foreach ($this->today['sessions'] as $session)
-                        <li wire:key="today-session-{{ $session->id }}" class="flex items-start gap-3 border-s-2 border-brand-gold ps-3">
+                        <li wire:key="today-session-{{ $session->id }}" class="flex items-start gap-3 rounded-xl border-s-2 border-brand-gold bg-brand-page/60 px-3 py-2.5">
                             <div class="min-w-0 flex-1">
                                 <p class="truncate font-semibold text-brand-navy">{{ $session->project->name }}</p>
                                 <p class="text-sm tabular-nums text-zinc-600">
                                     {{ $session->clock_in_at->format('g:i A') }}
                                     &rarr;
-                                    {{ $session->clock_out_at?->format('g:i A') ?? __('now') }}
+                                    @if ($session->clock_out_at)
+                                        @include('livewire.attendance.partials.clock-out-time', ['attendance' => $session])
+                                    @else
+                                        {{ __('now') }}
+                                    @endif
                                 </p>
                             </div>
-                            <span class="shrink-0 text-sm font-semibold tabular-nums text-brand-navy">
-                                @if ($session->hours_worked !== null)
-                                    {{ $session->hours_worked }} {{ __('hrs') }}
-                                @else
-                                    <x-status-badge color="green">{{ __('Clocked In') }}</x-status-badge>
+                            <div class="flex shrink-0 flex-col items-end gap-1">
+                                {{-- The running time is on the card on the left; here a Clocked In record shows only its status. --}}
+                                @if ($session->clock_out_at)
+                                    <span class="text-sm font-semibold tabular-nums text-brand-navy">
+                                        @include('livewire.attendance.partials.worked-time', ['attendance' => $session])
+                                    </span>
                                 @endif
-                            </span>
+                                @include('livewire.attendance.partials.status-badge', ['attendance' => $session])
+                            </div>
                         </li>
                     @endforeach
                 </ol>

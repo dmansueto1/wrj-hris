@@ -139,7 +139,7 @@
 
                         <flux:table.rows>
                             @foreach ($this->projects as $project)
-                                <flux:table.row :key="$project->id" class="h-16">
+                                <flux:table.row :key="$project->id">
                                     <flux:table.cell>
                                         <a href="{{ route('projects.show', $project) }}" wire:navigate class="group block">
                                             <span class="block font-semibold text-brand-navy group-hover:text-brand-blue">{{ $project->name }}</span>

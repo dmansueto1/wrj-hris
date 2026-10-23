@@ -10,6 +10,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\Costing\LaborCost;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -67,8 +68,8 @@ class AttendanceService
     }
 
     /**
-     * The user's sessions with today's work date (void ones left out) and the day's total hours,
-     * computed from the exact minutes of the counted sessions (PRD US-12).
+     * The user's sessions with today's work date (void ones left out) and the day's total hours:
+     * the sum of the hours shown on the counted sessions (PRD US-12), as in the attendance history.
      *
      * @return array{sessions: Collection<int, Attendance>, total_hours: string}
      */
@@ -82,11 +83,12 @@ class AttendanceService
             ->orderBy('clock_in_at')
             ->get();
 
-        $minutes = (int) $sessions
+        // Same as the attendance history (T-11): the total is the sum of the hours shown per row.
+        $hundredths = (int) $sessions
             ->filter(fn (Attendance $session) => in_array($session->status, Attendance::COUNTED_STATUSES, true))
-            ->sum('minutes_worked');
+            ->sum(fn (Attendance $session) => Money::toCentavos((string) $session->hours_worked));
 
-        return ['sessions' => $sessions, 'total_hours' => LaborCost::hoursForMinutes($minutes)];
+        return ['sessions' => $sessions, 'total_hours' => Money::fromCentavos($hundredths)];
     }
 
     public function clockOut(User $user, ?float $lat = null, ?float $lng = null, ?string $photoPath = null): Attendance

@@ -55,6 +55,17 @@ class Attendance extends Model
     public const COUNTED_STATUSES = [self::STATUS_CLOSED, self::STATUS_ADJUSTED];
 
     /**
+     * On-screen label and badge color per status (T-11). Never "session" on screen.
+     */
+    public const STATUSES = [
+        self::STATUS_OPEN => ['Clocked In', 'green'],
+        self::STATUS_CLOSED => ['Clocked Out', 'zinc'],
+        self::STATUS_ADJUSTED => ['Adjusted', 'indigo'],
+        self::STATUS_FLAGGED => ['Flagged', 'red'],
+        self::STATUS_VOID => ['Void', 'zinc'],
+    ];
+
+    /**
      * The model's default values for attributes.
      *
      * @var array<string, mixed>
@@ -109,6 +120,59 @@ class Attendance extends Model
     public function adjustedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'adjusted_by');
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status][0] ?? ucfirst($this->status);
+    }
+
+    /**
+     * Badge color: Clocked In green and Clocked Out gray (as on the clock screens and kiosk), Adjusted purple, Flagged red, Void gray.
+     */
+    public function statusColor(): string
+    {
+        return self::STATUSES[$this->status][1] ?? 'zinc';
+    }
+
+    /**
+     * Seconds since clock-in while Clocked In (for the running worked time); null otherwise.
+     */
+    public function runningSeconds(): ?int
+    {
+        if ($this->status !== self::STATUS_OPEN) {
+            return null;
+        }
+
+        return max(0, (int) $this->clock_in_at->diffInSeconds(now()));
+    }
+
+    /**
+     * The running worked time as "2h 05m 09s" (the same format the runningTime Alpine helper
+     * ticks), or null when not Clocked In.
+     */
+    public function runningTimeLabel(): ?string
+    {
+        $seconds = $this->runningSeconds();
+
+        if ($seconds === null) {
+            return null;
+        }
+
+        return sprintf('%dh %02dm %02ds', intdiv($seconds, 3600), intdiv($seconds % 3600, 60), $seconds % 60);
+    }
+
+    /**
+     * How many calendar days after the work date the clock-out falls: 0 the same day, 1 after
+     * midnight, and so on. 0 while Clocked In.
+     */
+    public function clockOutDayOffset(): int
+    {
+        if ($this->clock_out_at === null) {
+            return 0;
+        }
+
+        return (int) $this->work_date->copy()->startOfDay()->diffInDays($this->clock_out_at->copy()->startOfDay());
     }
 
     /**

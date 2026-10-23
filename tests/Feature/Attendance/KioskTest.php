@@ -44,7 +44,7 @@ class KioskTest extends TestCase
         $this->verify('jdelacruz')
             ->assertHasNoErrors()
             ->assertSet('password', '')
-            ->assertSee('Hi, Juan D.')
+            ->assertSee('Hi, Juan Dela Cruz')
             ->assertSee('Riverside Townhomes')
             ->assertDontSee('Finished School')
             ->assertSeeHtml('data-test="kiosk-clock-in-button"')

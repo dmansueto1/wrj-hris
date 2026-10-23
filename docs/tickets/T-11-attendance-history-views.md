@@ -8,10 +8,11 @@
 **Build**
 
 - On screen, a clock-in-to-clock-out period is an "attendance" (one attendance record), never a "session" (CLAUDE.md wording rule); "Clock In" / "Clock Out" stay for the actions.
-- `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), attendance grouped by day with project, in, out, hours and status, plus daily and range total hours. Workers do not see peso amounts or photos.
-- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, employee no., name, project, in, out, hours, rate, labor cost, photos, status; a totals row for hours and labor cost over all filtered attendance records (not just the current page); paginated with rows per page (10 / 25 / 50 / 100, default 10).
+- `/attendance/mine` (permission `attendance.view-own`): date range filter (default: current week, Monday to Sunday), attendance grouped by day with project, in, out, worked time and status, plus a "Total" row with the range's total hours under the Worked time column. Workers do not see peso amounts or photos.
+- `/attendance` (permission `attendance.view-all`): filters for date range, user, project and status; columns date, name, project, in, out, worked time, rate, labor cost, photos, status; a "Total" row with the labor cost over all filtered attendance records (not just the current page), and the total hours in the stat cards; paginated with rows per page (10 / 25 / 50 / 100, default 10).
 - Photos column: small round thumbnails of the clock-in and clock-out photos loaded from `route('attendance.photo', [$attendance, 'in'|'out'])` (`loading="lazy"`); clicking a thumbnail opens it full size in a modal. An attendance record without a photo shows a muted "No photo" placeholder; a Clocked In row shows only the clock-in photo.
-- Status badges with on-screen labels: open "Clocked In" blue, closed "Clocked Out" green, adjusted "Adjusted" purple, flagged "Flagged" red, void "Void" gray (struck through).
+- Worked time: completed attendance shows its hours with the unit (`4.50 h`); a Clocked In record shows a live running time from its clock-in, to the second (`2h 05m 09s`).
+- Status badges with on-screen labels: open "Clocked In" green, closed "Clocked Out" gray (the same colors as the clock screens and kiosk), adjusted "Adjusted" purple, flagged "Flagged" red, void "Void" gray (struck through).
 
 **Acceptance criteria**
 
