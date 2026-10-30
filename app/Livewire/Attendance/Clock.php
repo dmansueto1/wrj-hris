@@ -10,6 +10,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AttendanceService;
+use App\Services\DeviceService;
 use App\Support\AttendancePhotos;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
@@ -52,8 +53,20 @@ class Clock extends Component
         abort_unless(Auth::user()?->can('attendance.clock'), 403);
     }
 
+    /**
+     * "Request access" on a device that is not approved yet (T-11.1); remembers who asked.
+     */
+    public function requestAccess(DeviceService $devices): void
+    {
+        $devices->requestAccess(request(), 'clock', $this->user());
+    }
+
     public function clockIn(AttendanceService $attendance, mixed $lat = null, mixed $lng = null): void
     {
+        if (! $this->deviceAllowed()) {
+            return;
+        }
+
         $this->validate(['projectId' => ['required', 'integer'], ...$this->photoRules()], [
             'projectId.required' => __('Choose the project you are working on.'),
             ...$this->photoMessages(),
@@ -70,6 +83,7 @@ class Clock extends Component
             [$latitude, $longitude] = $this->location($lat, $lng);
 
             $this->withStoredPhoto($this->user(), 'in', fn (?string $photoPath) => $attendance->clockIn($this->user(), $project, $latitude, $longitude, $photoPath));
+            app(DeviceService::class)->recordUser(request(), $this->user());
 
             $this->reset('projectId', 'lastClockOut', 'photo');
             Flux::toast(variant: 'success', text: __('Clocked in to :project.', ['project' => $project->name]));
@@ -78,12 +92,17 @@ class Clock extends Component
 
     public function clockOut(AttendanceService $attendance, mixed $lat = null, mixed $lng = null): void
     {
+        if (! $this->deviceAllowed()) {
+            return;
+        }
+
         $this->validate($this->photoRules(), $this->photoMessages());
 
         $this->attempt(function () use ($attendance, $lat, $lng) {
             [$latitude, $longitude] = $this->location($lat, $lng);
 
             $session = $this->withStoredPhoto($this->user(), 'out', fn (?string $photoPath) => $attendance->clockOut($this->user(), $latitude, $longitude, $photoPath));
+            app(DeviceService::class)->recordUser(request(), $this->user());
 
             $session->load('project');
             $this->reset('photo');
@@ -123,11 +142,28 @@ class Clock extends Component
         return app(AttendanceService::class)->today($this->user());
     }
 
-    public function render(): View
+    public function render(DeviceService $devices): View
     {
         return view('livewire.attendance.clock', [
+            'deviceState' => $devices->state(request()),
+            'device' => $devices->find(request()),
             'photoRequired' => AttendancePhotos::required(),
         ]);
+    }
+
+    /**
+     * Server-side check behind the approval screen: a device that is not approved saves nothing.
+     */
+    private function deviceAllowed(): bool
+    {
+        if (app(DeviceService::class)->state(request()) === DeviceService::STATE_ALLOWED) {
+            return true;
+        }
+
+        $this->resetErrorBag('clock');
+        $this->addError('clock', __('This device is not approved for clock in/out.'));
+
+        return false;
     }
 
     /**

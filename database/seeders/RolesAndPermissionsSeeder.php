@@ -26,6 +26,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'material-entries.create',
             'expenses.view',
             'reports.export',
+            'devices.manage',
         ],
         'staff' => [
             'attendance.clock',

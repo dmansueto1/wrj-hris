@@ -10,6 +10,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AttendanceService;
+use App\Services\DeviceService;
 use App\Services\KioskService;
 use App\Support\AttendancePhotos;
 use Flux\Flux;
@@ -59,10 +60,19 @@ class Kiosk extends Component
     public ?int $verifiedAt = null;
 
     /**
+     * "Request access" on a device that is not approved yet (T-11.1).
+     */
+    public function requestAccess(DeviceService $devices): void
+    {
+        $devices->requestAccess(request(), 'kiosk', null);
+    }
+
+    /**
      * Step 1: check the username and password. The password is cleared after every attempt.
      */
     public function verify(KioskService $kiosk): void
     {
+        $this->ensureDeviceAllowed();
         $this->resetErrorBag();
 
         try {
@@ -83,6 +93,7 @@ class Kiosk extends Component
 
     public function clockIn(AttendanceService $attendance, mixed $lat = null, mixed $lng = null): void
     {
+        $this->ensureDeviceAllowed();
         $user = $this->verifiedUser();
 
         if ($user === null) {
@@ -104,6 +115,7 @@ class Kiosk extends Component
             [$latitude, $longitude] = $this->location($lat, $lng);
 
             $duty = $this->withStoredPhoto($user, 'in', fn (?string $photoPath) => $attendance->clockIn($user, $project, $latitude, $longitude, $photoPath));
+            app(DeviceService::class)->recordUser(request(), $user);
 
             $this->finish(__(':name — Clocked In at :time', [
                 'name' => KioskService::nameFor($user->first_name, $user->last_name),
@@ -114,6 +126,7 @@ class Kiosk extends Component
 
     public function clockOut(AttendanceService $attendance, mixed $lat = null, mixed $lng = null): void
     {
+        $this->ensureDeviceAllowed();
         $user = $this->verifiedUser();
 
         if ($user === null) {
@@ -126,6 +139,7 @@ class Kiosk extends Component
             [$latitude, $longitude] = $this->location($lat, $lng);
 
             $duty = $this->withStoredPhoto($user, 'out', fn (?string $photoPath) => $attendance->clockOut($user, $latitude, $longitude, $photoPath));
+            app(DeviceService::class)->recordUser(request(), $user);
 
             $this->finish(__(':name — Clocked Out at :time', [
                 'name' => KioskService::nameFor($user->first_name, $user->last_name),
@@ -164,12 +178,22 @@ class Kiosk extends Component
         return Project::query()->ongoing()->orderBy('code')->get(['id', 'code', 'name', 'location']);
     }
 
-    public function render(): View
+    public function render(DeviceService $devices): View
     {
         return view('livewire.attendance.kiosk', [
+            'deviceState' => $devices->state(request()),
+            'device' => $devices->find(request()),
             'displayName' => $this->user ? KioskService::nameFor($this->user->first_name, $this->user->last_name) : null,
             'photoRequired' => AttendancePhotos::required(),
         ]);
+    }
+
+    /**
+     * A device that is not approved only ever sees the approval screen; a tampered request stops here.
+     */
+    private function ensureDeviceAllowed(): void
+    {
+        abort_unless(app(DeviceService::class)->state(request()) === DeviceService::STATE_ALLOWED, 403);
     }
 
     /**

@@ -5,6 +5,11 @@
 <div class="flex flex-col gap-6" x-data="clockPad">
     <x-page-header :title="__('Clock In/Out')" :description="now()->format('l, F j, Y')" />
 
+    @if ($deviceState !== \App\Services\DeviceService::STATE_ALLOWED)
+        {{-- T-11.1: until this device is approved, the approval card replaces the Clock In/Out card and Today panel. --}}
+        <x-device-approval :state="$deviceState" :code="$device?->code" :requested-at="$device?->requested_at" />
+    @else
+
     @error('clock')
         <flux:callout variant="danger" icon="exclamation-circle" :heading="$message" role="alert" data-test="clock-error" />
     @enderror
@@ -181,4 +186,5 @@
             @endif
         </section>
     </div>
+    @endif
 </div>

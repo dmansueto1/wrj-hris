@@ -22,6 +22,7 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <!-- Existing clock tests run without the camera step; photo tests switch it on with config(). -->
         <env name="ATTENDANCE_REQUIRE_PHOTO" value="false"/>
+        <env name="ATTENDANCE_REQUIRE_APPROVED_DEVICE" value="false"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>

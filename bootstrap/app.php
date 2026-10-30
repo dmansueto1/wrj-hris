@@ -19,9 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Behind a proxy (ngrok while testing on other devices, Nginx in production), use the
-        // forwarded host and https scheme so links, redirects and secure cookies are correct.
-        $middleware->trustProxies(at: '*');
+        // Trusted proxies (ngrok locally, a load balancer on a server) are set in config/trustedproxy.php.
 
         $middleware->web(append: [
             UseBuiltAssetsForOtherHosts::class,

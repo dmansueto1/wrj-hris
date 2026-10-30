@@ -2,6 +2,11 @@
     Kiosk (T-10.1). Step 1: username + password. Step 2: Clock In (pick a project) or Clock Out.
     x-data="clockPad" (resources/js/app.js) gets the browser location, then calls the Livewire action.
 --}}
+<div>
+@if ($deviceState !== \App\Services\DeviceService::STATE_ALLOWED)
+    {{-- T-11.1: a device that is not approved sees only this card, not the sign-in form or the live list. --}}
+    <x-device-approval :state="$deviceState" :code="$device?->code" :requested-at="$device?->requested_at" class="mt-4" />
+@else
 <div class="grid gap-6 lg:h-[32rem] lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]" x-data="clockPad">
     <section class="flex flex-col overflow-hidden rounded-card bg-white shadow-card-hover ring-1 ring-brand-navy/5 lg:h-full">
         {{-- Step indicator --}}
@@ -192,4 +197,6 @@
 
     {{-- Same fixed height as the sign-in card on wide screens; the list scrolls inside. --}}
     <livewire:attendance.kiosk-duties />
+</div>
+@endif
 </div>

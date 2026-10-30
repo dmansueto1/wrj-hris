@@ -15,4 +15,17 @@ return [
 
     'require_photo' => (bool) env('ATTENDANCE_REQUIRE_PHOTO', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Approved devices only (T-11.1)
+    |--------------------------------------------------------------------------
+    |
+    | When true, /kiosk and the Clock In/Out page work only on devices an Admin
+    | approved on the Devices page; other devices see the "Request access" screen.
+    | Read it through App\Services\DeviceService::required().
+    |
+    */
+
+    'require_approved_device' => (bool) env('ATTENDANCE_REQUIRE_APPROVED_DEVICE', true),
+
 ];

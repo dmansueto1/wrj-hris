@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
 
@@ -25,6 +26,7 @@ class SharedHostAssetsTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->hotFile);
+        TrustProxies::flushState();
 
         parent::tearDown();
     }
@@ -41,6 +43,8 @@ class SharedHostAssetsTest extends TestCase
     public function testThroughAnNgrokLinkThePageUsesTheBuiltAssets(): void
     {
         config(['app.url' => 'https://wrj-hris.test']);
+        // As on a local machine, where ngrok's forwarded headers are trusted (bootstrap/app.php).
+        TrustProxies::at('*');
 
         $this->withHeaders(['X-Forwarded-Host' => 'demo.ngrok-free.dev', 'X-Forwarded-Proto' => 'https'])
             ->get('https://wrj-hris.test/login')

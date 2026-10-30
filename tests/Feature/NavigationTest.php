@@ -20,6 +20,7 @@ class NavigationTest extends TestCase
         'material-entries.index',
         'materials.index',
         'users.index',
+        'devices.index',
         'reports.index',
     ];
 

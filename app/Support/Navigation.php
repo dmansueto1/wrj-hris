@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Livewire\Attendance;
+use App\Livewire\Devices;
 use App\Livewire\Materials;
 use App\Livewire\Projects;
 use App\Livewire\Users;
@@ -28,6 +29,7 @@ class Navigation
             ['label' => 'Material Entries', 'url' => 'material-entries', 'route' => 'material-entries.index', 'group' => 'Operations', 'icon' => 'shopping-cart', 'permissions' => ['material-entries.create']],
             ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'group' => 'Operations', 'icon' => 'cube', 'permissions' => ['materials.manage'], 'component' => Materials\Index::class],
             ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'group' => 'Admin', 'icon' => 'users', 'permissions' => ['users.manage'], 'component' => Users\Index::class, 'middleware' => ['password.confirm']],
+            ['label' => 'Devices', 'url' => 'devices', 'route' => 'devices.index', 'group' => 'Admin', 'icon' => 'device-tablet', 'permissions' => ['devices.manage'], 'component' => Devices\Index::class],
             ['label' => 'Reports', 'url' => 'reports', 'route' => 'reports.index', 'group' => 'Admin', 'icon' => 'document-chart-bar', 'permissions' => ['reports.export']],
         ];
     }
