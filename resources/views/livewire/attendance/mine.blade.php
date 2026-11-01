@@ -1,12 +1,12 @@
-{{-- My Attendance (T-11): own attendance in a table grouped by day. Hours only: no peso amounts, no photos. --}}
+{{-- My Attendance (T-11, T-11.4): every day of the range, Present or Absent like All Attendance. Hours only: no peso amounts, no photos. --}}
 <div class="flex flex-col gap-6">
     <x-page-header :title="__('My Attendance')" :description="__('Your attendance by day, with the hours worked on each project.')" />
 
     {{-- Stat cards --}}
     <div class="grid gap-4 sm:grid-cols-3">
-        <x-stat-card icon="clock" color="blue" :label="__('Total hours')" :value="$this->totals['hours']" :note="__('Clocked Out and adjusted attendance')" />
-        <x-stat-card icon="calendar-days" color="green" :label="__('Days')" :value="number_format($this->days->total())" :note="__('Days with attendance in this range')" />
-        <x-stat-card icon="clipboard-document-check" color="indigo" :label="__('Attendance records')" :value="number_format($this->totals['count'])" :note="__('In this date range')" />
+        <x-stat-card icon="check-circle" color="green" :label="__('Present days')" :value="number_format($this->totals['present_days'])" :note="__('Days with attendance')" />
+        <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent days')" :value="number_format($this->totals['absent_days'])" :note="__('Days without attendance')" />
+        <x-stat-card icon="clock" color="blue" :label="__('Total hours')" :value="$this->totals['hours'].' h'" :note="__('In this date range')" />
     </div>
 
     {{-- Filter toolbar --}}
@@ -15,6 +15,15 @@
             <flux:input type="date" wire:model.live="from" :label="__('From')" data-test="filter-from" />
             <flux:input type="date" wire:model.live="to" :label="__('To')" data-test="filter-to" />
         </div>
+
+        @if ($this->range['shortened'])
+            <p class="mt-3 text-xs text-warning" data-test="range-shortened">
+                {{ __('Showing the last 92 days of the range: :from to :to.', [
+                    'from' => \Illuminate\Support\Carbon::parse($this->range['from'])->format('M j, Y'),
+                    'to' => \Illuminate\Support\Carbon::parse($this->range['to'])->format('M j, Y'),
+                ]) }}
+            </p>
+        @endif
 
         @unless ($isThisWeek)
             <div class="mt-3 flex flex-wrap items-center gap-2" data-test="active-filters">
@@ -31,9 +40,9 @@
 
     <x-data-card>
         @if ($this->days->isEmpty())
-            <x-empty-state icon="calendar-days" :title="__('No attendance in this range.')" :description="__('Pick other dates, or clock in to start a new attendance.')" />
+            <x-empty-state icon="calendar-days" :title="__('No days on this page.')" :description="__('Go back to the first page or pick other dates.')" />
         @else
-            {{-- Desktop / tablet: table, grouped by day; the total hours sit under the Worked time column --}}
+            {{-- Desktop / tablet: one row per attendance, an Absent row for days without; the total hours sit under Worked time --}}
             <div class="hidden max-h-[70vh] overflow-auto px-4 sm:px-6 md:block">
                 <flux:table>
                     <flux:table.columns sticky class="bg-white">
@@ -48,25 +57,33 @@
                     <flux:table.rows>
                         @foreach ($this->days as $day)
                             @php($date = $day['date']->toDateString())
-                            @foreach ($day['attendances'] as $attendance)
-                                @php($void = $attendance->status === \App\Models\Attendance::STATUS_VOID)
-                                <flux:table.row :key="'row-'.$attendance->id" :class="$void ? 'opacity-60' : ''">
+                            @php($records = $day['attendances']->isEmpty() ? [null] : $day['attendances']->all())
+                            @foreach ($records as $attendance)
+                                <flux:table.row :key="'row-'.$date.'-'.($attendance?->id ?? 'absent')">
                                     <flux:table.cell class="whitespace-nowrap">
                                         @if ($loop->first)
                                             <span class="font-semibold text-brand-navy" data-test="day-{{ $date }}">{{ $day['date']->format('l, M j') }}</span>
                                         @endif
                                     </flux:table.cell>
+                                    @if ($attendance)
+                                        <flux:table.cell>
+                                            <span class="block max-w-64 truncate font-medium text-brand-navy">{{ $attendance->project->name }}</span>
+                                            <span class="font-mono text-xs text-zinc-500">{{ $attendance->project->code }}</span>
+                                        </flux:table.cell>
+                                        <flux:table.cell class="whitespace-nowrap tabular-nums">{{ $attendance->clock_in_at->format('g:i A') }}</flux:table.cell>
+                                        <flux:table.cell class="whitespace-nowrap tabular-nums">
+                                            @include('livewire.attendance.partials.clock-out-time', ['attendance' => $attendance])
+                                        </flux:table.cell>
+                                        <flux:table.cell align="end" class="tabular-nums">@include('livewire.attendance.partials.worked-time', ['attendance' => $attendance])</flux:table.cell>
+                                    @else
+                                        @foreach (range(1, 4) as $i)
+                                            <flux:table.cell class="text-zinc-400">&mdash;</flux:table.cell>
+                                        @endforeach
+                                    @endif
                                     <flux:table.cell>
-                                        <span @class(['block max-w-64 truncate font-medium text-brand-navy', 'line-through' => $void])>{{ $attendance->project->name }}</span>
-                                        <span class="font-mono text-xs text-zinc-500">{{ $attendance->project->code }}</span>
-                                    </flux:table.cell>
-                                    <flux:table.cell class="whitespace-nowrap tabular-nums">{{ $attendance->clock_in_at->format('g:i A') }}</flux:table.cell>
-                                    <flux:table.cell class="whitespace-nowrap tabular-nums">
-                                        @include('livewire.attendance.partials.clock-out-time', ['attendance' => $attendance])
-                                    </flux:table.cell>
-                                    <flux:table.cell align="end" class="tabular-nums">@include('livewire.attendance.partials.worked-time', ['attendance' => $attendance])</flux:table.cell>
-                                    <flux:table.cell>
-                                        @include('livewire.attendance.partials.status-badge', ['attendance' => $attendance])
+                                        @if ($loop->first)
+                                            @include('livewire.attendance.partials.presence-badge', ['present' => $day['present']])
+                                        @endif
                                     </flux:table.cell>
                                 </flux:table.row>
                             @endforeach
@@ -81,42 +98,30 @@
                 </flux:table>
             </div>
 
-            {{-- Phone: stacked cards, one group per day --}}
+            {{-- Phone: one card per day --}}
             <ol class="divide-y divide-zinc-100 md:hidden">
                 @foreach ($this->days as $day)
-                    @php($date = $day['date']->toDateString())
-                    <li wire:key="day-card-{{ $date }}" class="p-4">
-                        <h2 class="font-bold text-brand-navy">{{ $day['date']->format('l, M j') }}</h2>
+                    <li wire:key="day-card-{{ $day['date']->toDateString() }}" class="flex flex-col gap-2 p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <h2 class="font-bold text-brand-navy">{{ $day['date']->format('l, M j') }}</h2>
+                            @include('livewire.attendance.partials.presence-badge', ['present' => $day['present']])
+                        </div>
 
-                        <ul class="mt-3 flex flex-col gap-2">
-                            @foreach ($day['attendances'] as $attendance)
-                                @php($void = $attendance->status === \App\Models\Attendance::STATUS_VOID)
-                                <li
-                                    wire:key="attendance-card-{{ $attendance->id }}"
-                                    @class([
-                                        'flex flex-col gap-2 rounded-xl border-s-2 bg-brand-page/60 px-3 py-2.5',
-                                        'border-brand-gold' => ! $void,
-                                        'border-zinc-300 opacity-70' => $void,
-                                    ])
-                                >
-                                    <div class="min-w-0">
-                                        <p @class(['truncate font-semibold text-brand-navy', 'line-through' => $void])>{{ $attendance->project->name }}</p>
-                                        <p class="font-mono text-xs text-zinc-500">{{ $attendance->project->code }}</p>
-                                    </div>
-                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                                        <span class="tabular-nums text-zinc-700">
-                                            {{ $attendance->clock_in_at->format('g:i A') }}
-                                            &rarr;
-                                            @include('livewire.attendance.partials.clock-out-time', ['attendance' => $attendance])
-                                        </span>
-                                        <span class="font-semibold tabular-nums text-brand-navy">
-                                            @include('livewire.attendance.partials.worked-time', ['attendance' => $attendance])
-                                        </span>
-                                        @include('livewire.attendance.partials.status-badge', ['attendance' => $attendance])
-                                    </div>
-                                </li>
-                            @endforeach
-                        </ul>
+                        @foreach ($day['attendances'] as $attendance)
+                            <div wire:key="attendance-card-{{ $attendance->id }}" class="flex flex-col gap-1 rounded-xl border-s-2 border-brand-gold bg-brand-page/60 px-3 py-2.5">
+                                <p class="truncate font-semibold text-brand-navy">{{ $attendance->project->name }}</p>
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                                    <span class="tabular-nums text-zinc-700">
+                                        {{ $attendance->clock_in_at->format('g:i A') }}
+                                        &rarr;
+                                        @include('livewire.attendance.partials.clock-out-time', ['attendance' => $attendance])
+                                    </span>
+                                    <span class="font-semibold tabular-nums text-brand-navy">
+                                        @include('livewire.attendance.partials.worked-time', ['attendance' => $attendance])
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
                     </li>
                 @endforeach
                 <li class="flex items-center justify-between gap-3 bg-brand-tint/50 p-4 text-sm">

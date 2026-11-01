@@ -55,6 +55,11 @@ class Attendance extends Model
     public const COUNTED_STATUSES = [self::STATUS_CLOSED, self::STATUS_ADJUSTED];
 
     /**
+     * Attendance that makes its employee "Present" on its work date (T-11.4): everything except void.
+     */
+    public const PRESENT_STATUSES = [self::STATUS_OPEN, self::STATUS_CLOSED, self::STATUS_ADJUSTED, self::STATUS_FLAGGED];
+
+    /**
      * On-screen label and badge color per status (T-11). Never "session" on screen.
      */
     public const STATUSES = [

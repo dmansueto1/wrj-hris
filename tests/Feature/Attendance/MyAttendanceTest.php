@@ -84,13 +84,14 @@ class MyAttendanceTest extends TestCase
             ->assertSee('Inside Project')
             ->assertDontSee('Last Week Project')
             ->assertDontSee('Next Month Project')
-            ->set('from', '2026-10-01')
-            ->set('to', '2026-10-31')
+            // Every day is listed, 10 per page: 12 to 21 Oct fits on one page.
+            ->set('from', '2026-10-12')
+            ->set('to', '2026-10-21')
             ->assertSee('Last Week Project')
             ->assertDontSee('Next Month Project');
     }
 
-    public function testAttendanceIsGroupedByDayWithTheRangeTotal(): void
+    public function testEveryDayOfTheRangeIsListedWithTheRangeTotal(): void
     {
         $worker = User::factory()->worker()->create();
         $projectA = Project::factory()->ongoing()->create(['name' => 'Project A']);
@@ -103,15 +104,18 @@ class MyAttendanceTest extends TestCase
             'clock_in_at' => '2026-10-19 12:30:00',
             'clock_out_at' => '2026-10-19 17:00:00',
         ]);
-        // Tuesday: one morning, plus a void one that does not count.
+        // Tuesday: one morning, plus a void one that is not listed and does not count.
         Attendance::factory()->for($worker)->for($projectA)->onDate('2026-10-20')->create();
-        Attendance::factory()->for($worker)->for($projectA)->onDate('2026-10-20')->void()->create();
+        Attendance::factory()->for($worker)->for($projectA)->onDate('2026-10-20')->void()->create([
+            'clock_in_at' => '2026-10-20 13:15:00',
+            'clock_out_at' => '2026-10-20 14:15:00',
+        ]);
 
         $this->actingAs($worker);
 
-        Livewire::test(Mine::class)
+        $component = Livewire::test(Mine::class)
             ->assertSeeHtml('data-test="day-2026-10-19"')
-            ->assertSeeHtml('data-test="day-2026-10-20"')
+            ->assertSeeHtml('data-test="day-2026-10-25"')
             ->assertDontSee('Day total')
             ->assertSeeHtml('data-test="range-total">13.50</span> h')
             ->assertSee('Monday, Oct 19')
@@ -119,7 +123,24 @@ class MyAttendanceTest extends TestCase
             ->assertSee('11:30 AM')
             ->assertSee('12:30 PM')
             ->assertSee('5:00 PM')
-            ->assertSee('Void');
+            ->assertDontSee('1:15 PM')
+            ->assertDontSee('Void');
+
+        // All 7 days of this week, newest first: Monday and Tuesday Present, the rest Absent.
+        $presence = collect($component->instance()->days->items())
+            ->mapWithKeys(fn (array $day) => [$day['date']->toDateString() => $day['present']])
+            ->all();
+        $this->assertSame([
+            '2026-10-25' => false,
+            '2026-10-24' => false,
+            '2026-10-23' => false,
+            '2026-10-22' => false,
+            '2026-10-21' => false,
+            '2026-10-20' => true,
+            '2026-10-19' => true,
+        ], $presence);
+        $this->assertSame(2, $component->instance()->totals['present_days']);
+        $this->assertSame(5, $component->instance()->totals['absent_days']);
     }
 
     public function testTheOwnPageShowsNoPesoAmountsAndNoPhotos(): void
@@ -138,7 +159,7 @@ class MyAttendanceTest extends TestCase
         $this->assertStringNotContainsString('/photo/out', $html);
     }
 
-    public function testOpenAndClosedAttendanceShowClockedInAndClockedOutAndNeverSession(): void
+    public function testTheStatusIsPresentOrAbsentLikeAllAttendanceAndNeverSession(): void
     {
         $worker = User::factory()->worker()->create();
         Attendance::factory()->for($worker)->onDate('2026-10-20')->create();
@@ -147,19 +168,26 @@ class MyAttendanceTest extends TestCase
         $this->actingAs($worker)
             ->get(route('attendance.mine'))
             ->assertOk()
-            ->assertSeeText('Clocked In')
-            ->assertSeeText('Clocked Out')
+            ->assertSeeHtml('data-test="presence-present"')
+            ->assertSeeHtml('data-test="presence-absent"')
+            ->assertSeeText('Present')
+            ->assertSeeText('Absent')
+            ->assertDontSeeText('Clocked Out')
             ->assertDontSeeText('session')
             ->assertDontSeeText('Session');
     }
 
-    public function testAnEmptyRangeShowsTheEmptyState(): void
+    public function testAWeekWithoutAttendanceShowsEveryDayAsAbsent(): void
     {
         $this->actingAs(User::factory()->worker()->create());
 
-        Livewire::test(Mine::class)
-            ->assertSee('No attendance in this range.')
-            ->assertDontSeeHtml('data-test="range-total"');
+        $component = Livewire::test(Mine::class)
+            ->assertSeeHtml('data-test="presence-absent"')
+            ->assertDontSeeHtml('data-test="presence-present"')
+            ->assertSeeHtml('data-test="range-total">0.00</span> h');
+
+        $this->assertSame(7, $component->instance()->days->total());
+        $this->assertSame(7, $component->instance()->totals['absent_days']);
     }
 
     public function testAReversedOrInvalidRangeIsCorrected(): void
@@ -184,17 +212,17 @@ class MyAttendanceTest extends TestCase
 
         $this->actingAs($worker);
 
-        // Newest day first; ten days per page by default.
+        // Every day of October, newest first; ten days per page by default.
         Livewire::test(Mine::class)
             ->set('from', '2026-10-01')
             ->set('to', '2026-10-31')
             ->assertSet('perPage', 10)
             ->assertSeeHtml('data-test="per-page-select"')
-            ->assertSeeHtml('data-test="day-2026-10-12"')
-            ->assertSeeHtml('data-test="day-2026-10-03"')
-            ->assertDontSeeHtml('data-test="day-2026-10-02"')
+            ->assertSeeHtml('data-test="day-2026-10-31"')
+            ->assertSeeHtml('data-test="day-2026-10-22"')
+            ->assertDontSeeHtml('data-test="day-2026-10-21"')
             ->assertSeeHtml('data-test="range-total">54.00')
-            ->call('gotoPage', 2)
+            ->call('gotoPage', 4)
             ->assertSeeHtml('data-test="day-2026-10-01"');
     }
 
@@ -209,6 +237,7 @@ class MyAttendanceTest extends TestCase
             ->assertSeeHtml('data-flux-table')
             ->assertSeeInOrder(['Date', 'Project', 'In', 'Out', 'Worked time', 'Status'])
             ->assertSeeHtml('data-test="worked-hours">4.50 h')
+            ->assertSeeHtml('data-test="presence-present"')
             ->assertDontSee('Day total')
             ->assertDontSee('Oct 19 to Oct 25')
             ->assertSeeHtml('md:hidden');

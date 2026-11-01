@@ -140,6 +140,14 @@ class User extends Authenticatable
     }
 
     /**
+     * "Dela Cruz, Juan": the name as listed in employee lists sorted by last name (T-11.4).
+     */
+    public function listName(): string
+    {
+        return trim("{$this->last_name}, {$this->first_name}", ', ');
+    }
+
+    /**
      * Get the user's initials
      */
     public function initials(): string

@@ -16,11 +16,13 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * My Attendance (T-11): the signed-in user's own attendance grouped by day, with hours only.
- * No peso amounts and no photos, whatever the role.
+ * My Attendance (T-11, T-11.4): every day of the range for the signed-in user, Present or Absent
+ * like All Attendance's By employee tab, with hours only. No peso amounts and no photos, whatever
+ * the role.
  *
- * @property-read LengthAwarePaginator<int, array{date: Carbon, attendances: EloquentCollection<int, Attendance>}> $days
- * @property-read array{hours: string, count: int} $totals
+ * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}> $days
+ * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string} $totals
+ * @property-read array{from: string, to: string, shortened: bool} $range
  */
 #[Title('My Attendance')]
 class Mine extends Component
@@ -60,21 +62,32 @@ class Mine extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{date: Carbon, attendances: EloquentCollection<int, Attendance>}>
+     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     #[Computed]
     public function days(): LengthAwarePaginator
     {
-        return app(AttendanceHistoryService::class)->ownDays(Auth::user(), $this->from, $this->to, $this->perPage());
+        return app(AttendanceHistoryService::class)->employeeDays((int) Auth::id(), $this->from, $this->to, $this->perPage());
     }
 
     /**
-     * @return array{hours: string, count: int}
+     * Present and absent days and hours; the labor cost is computed but never shown here.
+     *
+     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string}
      */
     #[Computed]
     public function totals(): array
     {
-        return app(AttendanceHistoryService::class)->ownTotals(Auth::user(), $this->from, $this->to);
+        return app(AttendanceHistoryService::class)->employeeSummary((int) Auth::id(), $this->from, $this->to);
+    }
+
+    /**
+     * @return array{from: string, to: string, shortened: bool}
+     */
+    #[Computed]
+    public function range(): array
+    {
+        return app(AttendanceHistoryService::class)->cappedRange($this->from, $this->to);
     }
 
     public function render(): View

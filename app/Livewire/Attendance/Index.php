@@ -4,11 +4,13 @@ namespace App\Livewire\Attendance;
 
 use App\Livewire\Concerns\WithPerPage;
 use App\Models\Attendance;
-use App\Models\Project;
 use App\Models\User;
+use App\Models\Project;
 use App\Services\AttendanceHistoryService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -17,24 +19,30 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * All Attendance (T-11): everyone's attendance with labor cost and clock-in/out photos, for
- * Admin and Staff. Totals cover every filtered record, not just the current page.
+ * All Attendance (T-11, T-11.4), for Admin and Staff, in two tabs:
+ * - Daily attendance: every employee on one date, sorted by last name, Present or Absent.
+ * - By employee: one employee's attendance day by day over a date range, Absent days included.
  *
- * @property-read LengthAwarePaginator<int, Attendance> $attendances
- * @property-read array{hours: string, labor_cost: string} $totals
+ * @property-read LengthAwarePaginator<int, array{user: User, present: bool, attendances: EloquentCollection<int, Attendance>}> $daily
+ * @property-read array{employees: int, present: int, absent: int, labor_cost: string} $dailySummary
+ * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}>|null $employeeDays
+ * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string}|null $employeeSummary
+ * @property-read array{from: string, to: string, shortened: bool} $range
  * @property-read Collection<int, User> $users
- * @property-read Collection<int, Project> $projects
  */
 #[Title('All Attendance')]
 class Index extends Component
 {
     use WithPerPage;
 
-    #[Url]
-    public string $from = '';
+    public const TABS = ['daily', 'employee'];
 
+    #[Url(as: 'tab', except: 'daily')]
+    public string $tab = 'daily';
+
+    /** Daily attendance: the date (today by default) and the employee filter ('' = all). */
     #[Url]
-    public string $to = '';
+    public string $date = '';
 
     #[Url(except: '')]
     public string $user = '';
@@ -43,7 +51,17 @@ class Index extends Component
     public string $project = '';
 
     #[Url(except: '')]
-    public string $status = '';
+    public string $sortBy = 'name';
+
+    /** By employee: the chosen employee ('' = none yet) and the date range (this week by default). */
+    #[Url(except: '')]
+    public string $employee = '';
+
+    #[Url]
+    public string $from = '';
+
+    #[Url]
+    public string $to = '';
 
     public function boot(): void
     {
@@ -52,6 +70,8 @@ class Index extends Component
 
     public function mount(AttendanceHistoryService $history): void
     {
+        $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'daily';
+        $this->date = $history->date($this->date);
         [$this->from, $this->to] = $history->range($this->from, $this->to);
     }
 
@@ -59,92 +79,118 @@ class Index extends Component
     {
         $history = app(AttendanceHistoryService::class);
 
-        if (in_array($property, ['from', 'to'], true)) {
-            [$this->from, $this->to] = $history->range($this->from, $this->to);
-        }
+        match ($property) {
+            'tab' => $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'daily',
+            'date' => $this->date = $history->date($this->date),
+            'from', 'to' => [$this->from, $this->to] = $history->range($this->from, $this->to),
+            default => null,
+        };
 
-        if (in_array($property, ['from', 'to', 'user', 'project', 'status'], true)) {
+        if (in_array($property, ['tab', 'date', 'user', 'employee', 'from', 'to'], true)) {
             $this->resetPage();
         }
     }
 
-    public function clearDates(AttendanceHistoryService $history): void
-    {
-        [$this->from, $this->to] = $history->currentWeek();
-        $this->resetPage();
-    }
-
     /**
-     * Back to this week, everyone, every project and every status.
+     * Back to today and everyone on Daily attendance; to no employee and this week on By employee.
      */
     public function clearFilters(AttendanceHistoryService $history): void
     {
-        $this->reset('user', 'project', 'status');
-        [$this->from, $this->to] = $history->currentWeek();
+        if ($this->tab === 'employee') {
+            $this->employee = '';
+            [$this->from, $this->to] = $history->currentWeek();
+        } else {
+            $this->user = '';
+            $this->date = $history->date('');
+        }
+
         $this->resetPage();
     }
 
     /**
-     * @return LengthAwarePaginator<int, Attendance>
+     * @return LengthAwarePaginator<int, array{user: User, present: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     #[Computed]
-    public function attendances(): LengthAwarePaginator
+    public function daily(): LengthAwarePaginator
     {
-        return app(AttendanceHistoryService::class)->all($this->filters(), $this->perPage());
+        return app(AttendanceHistoryService::class)->daily($this->date, $this->selectedId($this->user), $this->perPage(), $this->selectedId($this->project), $this->sortBy);
     }
 
     /**
-     * @return array{hours: string, labor_cost: string}
+     * @return array{employees: int, present: int, absent: int, labor_cost: string}
      */
     #[Computed]
-    public function totals(): array
+    public function dailySummary(): array
     {
-        return app(AttendanceHistoryService::class)->totals($this->filters());
+        return app(AttendanceHistoryService::class)->dailySummary($this->date, $this->selectedId($this->user), $this->selectedId($this->project), $this->sortBy);
     }
 
     /**
-     * Everyone who can have attendance, archived users included so old records stay findable.
+     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}>|null
+     */
+    #[Computed]
+    public function employeeDays(): ?LengthAwarePaginator
+    {
+        $employee = $this->selectedId($this->employee);
+
+        return $employee === null ? null : app(AttendanceHistoryService::class)->employeeDays($employee, $this->from, $this->to, $this->perPage());
+    }
+
+    /**
+     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string}|null
+     */
+    #[Computed]
+    public function employeeSummary(): ?array
+    {
+        $employee = $this->selectedId($this->employee);
+
+        return $employee === null ? null : app(AttendanceHistoryService::class)->employeeSummary($employee, $this->from, $this->to);
+    }
+
+    /**
+     * @return array{from: string, to: string, shortened: bool}
+     */
+    #[Computed]
+    public function range(): array
+    {
+        return app(AttendanceHistoryService::class)->cappedRange($this->from, $this->to);
+    }
+
+    /**
+     * Employees for both dropdowns, "Last, First (EMP-0042)" sorted by last name. Inactive and
+     * archived employees are included so their history can still be looked up.
      *
      * @return Collection<int, User>
      */
     #[Computed]
     public function users(): Collection
     {
-        return User::withTrashed()->orderBy('name')->get(['id', 'name', 'employee_no']);
+        return User::withTrashed()
+            ->permission('attendance.clock')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'employee_no']);
     }
 
-    /**
-     * @return Collection<int, Project>
-     */
     #[Computed]
     public function projects(): Collection
     {
-        return Project::withTrashed()->orderBy('code')->get(['id', 'code', 'name']);
+        return Project::query()
+            ->where(['status' => 'ongoing'])
+            ->orderBy('name')
+            ->get(['id', 'code', 'name']);
     }
 
     public function render(): View
     {
-        $history = app(AttendanceHistoryService::class);
-
         return view('livewire.attendance.index', [
-            'clockedInNow' => $history->clockedInNow(),
-            'isThisWeek' => [$this->from, $this->to] === $history->currentWeek(),
-            'hasFilters' => $this->user !== '' || $this->project !== '' || $this->status !== '',
-            'statuses' => Attendance::STATUSES,
+            'today' => now()->toDateString(),
+            'thisWeek' => app(AttendanceHistoryService::class)->currentWeek(),
         ]);
     }
 
-    /**
-     * @return array{from: string, to: string, user: ?int, project: ?int, status: ?string}
-     */
-    private function filters(): array
+    private function selectedId(string $value): ?int
     {
-        return [
-            'from' => $this->from,
-            'to' => $this->to,
-            'user' => ctype_digit($this->user) ? (int) $this->user : null,
-            'project' => ctype_digit($this->project) ? (int) $this->project : null,
-            'status' => $this->status !== '' ? $this->status : null,
-        ];
+        return ctype_digit($value) ? (int) $value : null;
     }
 }
