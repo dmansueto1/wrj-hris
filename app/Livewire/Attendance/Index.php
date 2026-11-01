@@ -4,8 +4,8 @@ namespace App\Livewire\Attendance;
 
 use App\Livewire\Concerns\WithPerPage;
 use App\Models\Attendance;
-use App\Models\User;
 use App\Models\Project;
+use App\Models\User;
 use App\Services\AttendanceHistoryService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
@@ -23,12 +23,14 @@ use Livewire\Component;
  * - Daily attendance: every employee on one date, sorted by last name, Present or Absent.
  * - By employee: one employee's attendance day by day over a date range, Absent days included.
  *
- * @property-read LengthAwarePaginator<int, array{user: User, present: bool, attendances: EloquentCollection<int, Attendance>}> $daily
+ * @property-read LengthAwarePaginator<int, array{user: User, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $daily
  * @property-read array{employees: int, present: int, absent: int, labor_cost: string} $dailySummary
- * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}>|null $employeeDays
+ * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null $employeeDays
  * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string}|null $employeeSummary
  * @property-read array{from: string, to: string, shortened: bool} $range
  * @property-read Collection<int, User> $users
+ * @property-read Collection<int, Project> $projects
+ * @property-read string|null $projectName
  */
 #[Title('All Attendance')]
 class Index extends Component
@@ -40,7 +42,10 @@ class Index extends Component
     #[Url(as: 'tab', except: 'daily')]
     public string $tab = 'daily';
 
-    /** Daily attendance: the date (today by default) and the employee filter ('' = all). */
+    /**
+     * Daily attendance: the date (today by default), the employee and project filters ('' = all)
+     * and the sort order (AttendanceHistoryService::DAILY_SORTS).
+     */
     #[Url]
     public string $date = '';
 
@@ -50,7 +55,7 @@ class Index extends Component
     #[Url(except: '')]
     public string $project = '';
 
-    #[Url(except: '')]
+    #[Url(as: 'sort', except: 'name')]
     public string $sortBy = 'name';
 
     /** By employee: the chosen employee ('' = none yet) and the date range (this week by default). */
@@ -72,6 +77,7 @@ class Index extends Component
     {
         $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'daily';
         $this->date = $history->date($this->date);
+        $this->sortBy = $this->validSort($this->sortBy);
         [$this->from, $this->to] = $history->range($this->from, $this->to);
     }
 
@@ -82,17 +88,19 @@ class Index extends Component
         match ($property) {
             'tab' => $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'daily',
             'date' => $this->date = $history->date($this->date),
+            'sortBy' => $this->sortBy = $this->validSort($this->sortBy),
             'from', 'to' => [$this->from, $this->to] = $history->range($this->from, $this->to),
             default => null,
         };
 
-        if (in_array($property, ['tab', 'date', 'user', 'employee', 'from', 'to'], true)) {
+        if (in_array($property, ['tab', 'date', 'user', 'project', 'sortBy', 'employee', 'from', 'to'], true)) {
             $this->resetPage();
         }
     }
 
     /**
-     * Back to today and everyone on Daily attendance; to no employee and this week on By employee.
+     * Back to today, everyone, every project and Name order on Daily attendance; to no employee and
+     * this week on By employee.
      */
     public function clearFilters(AttendanceHistoryService $history): void
     {
@@ -100,7 +108,7 @@ class Index extends Component
             $this->employee = '';
             [$this->from, $this->to] = $history->currentWeek();
         } else {
-            $this->user = '';
+            $this->reset('user', 'project', 'sortBy');
             $this->date = $history->date('');
         }
 
@@ -108,12 +116,12 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{user: User, present: bool, attendances: EloquentCollection<int, Attendance>}>
+     * @return LengthAwarePaginator<int, array{user: User, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     #[Computed]
     public function daily(): LengthAwarePaginator
     {
-        return app(AttendanceHistoryService::class)->daily($this->date, $this->selectedId($this->user), $this->perPage(), $this->selectedId($this->project), $this->sortBy);
+        return app(AttendanceHistoryService::class)->daily($this->date, $this->selectedId($this->user), $this->selectedId($this->project), $this->sortBy, $this->perPage());
     }
 
     /**
@@ -122,11 +130,11 @@ class Index extends Component
     #[Computed]
     public function dailySummary(): array
     {
-        return app(AttendanceHistoryService::class)->dailySummary($this->date, $this->selectedId($this->user), $this->selectedId($this->project), $this->sortBy);
+        return app(AttendanceHistoryService::class)->dailySummary($this->date, $this->selectedId($this->user), $this->selectedId($this->project));
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}>|null
+     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null
      */
     #[Computed]
     public function employeeDays(): ?LengthAwarePaginator
@@ -172,13 +180,24 @@ class Index extends Component
             ->get(['id', 'first_name', 'last_name', 'employee_no']);
     }
 
+    /**
+     * Ongoing projects for the Daily attendance project filter, A–Z.
+     *
+     * @return Collection<int, Project>
+     */
     #[Computed]
     public function projects(): Collection
     {
-        return Project::query()
-            ->where(['status' => 'ongoing'])
-            ->orderBy('name')
-            ->get(['id', 'code', 'name']);
+        return Project::query()->ongoing()->orderBy('name')->get(['id', 'code', 'name']);
+    }
+
+    /**
+     * The filtered project's name for its chip, even when it is no longer Ongoing.
+     */
+    #[Computed]
+    public function projectName(): ?string
+    {
+        return ctype_digit($this->project) ? Project::withTrashed()->find((int) $this->project)?->name : null;
     }
 
     public function render(): View
@@ -187,6 +206,11 @@ class Index extends Component
             'today' => now()->toDateString(),
             'thisWeek' => app(AttendanceHistoryService::class)->currentWeek(),
         ]);
+    }
+
+    private function validSort(string $sort): string
+    {
+        return in_array($sort, AttendanceHistoryService::DAILY_SORTS, true) ? $sort : 'name';
     }
 
     private function selectedId(string $value): ?int

@@ -140,7 +140,9 @@ class MyAttendanceTest extends TestCase
             '2026-10-19' => true,
         ], $presence);
         $this->assertSame(2, $component->instance()->totals['present_days']);
-        $this->assertSame(5, $component->instance()->totals['absent_days']);
+        // Today is the 21st: only the 21st is absent; the 22nd to the 25th have not happened yet.
+        $this->assertSame(1, $component->instance()->totals['absent_days']);
+        $component->assertSeeHtml('data-test="presence-none"');
     }
 
     public function testTheOwnPageShowsNoPesoAmountsAndNoPhotos(): void
@@ -177,7 +179,7 @@ class MyAttendanceTest extends TestCase
             ->assertDontSeeText('Session');
     }
 
-    public function testAWeekWithoutAttendanceShowsEveryDayAsAbsent(): void
+    public function testAWeekWithoutAttendanceShowsPastDaysAsAbsentAndFutureDaysAsADash(): void
     {
         $this->actingAs(User::factory()->worker()->create());
 
@@ -187,7 +189,9 @@ class MyAttendanceTest extends TestCase
             ->assertSeeHtml('data-test="range-total">0.00</span> h');
 
         $this->assertSame(7, $component->instance()->days->total());
-        $this->assertSame(7, $component->instance()->totals['absent_days']);
+        // Monday to today (Wednesday) are absent; Thursday to Sunday show a dash.
+        $this->assertSame(3, $component->instance()->totals['absent_days']);
+        $component->assertSeeHtml('data-test="presence-none"');
     }
 
     public function testAReversedOrInvalidRangeIsCorrected(): void

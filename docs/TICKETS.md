@@ -1074,6 +1074,7 @@ The last three tickets make every sensitive change traceable, give the client ex
 **Build**
 
 - Presence rule (in `App\Models\Attendance`): `PRESENT_STATUSES = [open, closed, adjusted, flagged]` (everything except `void`). An employee is **Present** on a date when they have at least one attendance with that `work_date` in `PRESENT_STATUSES`; otherwise **Absent** (an employee whose only attendance that day is void is Absent). Void attendance is not listed in either tab.
+- Days after today (in `Asia/Manila`) are neither Present nor Absent yet: their Status shows a dash (`data-test="presence-none"`) like other empty cells, and they are not counted as Absent (Daily attendance Absent card is 0 for a future date; Absent days count only up to today on By employee and My Attendance).
 - Presence badge partial `resources/views/livewire/attendance/partials/presence-badge.blade.php`: Present `<x-status-badge color="green">`, Absent `<x-status-badge color="zinc">` (the same gray as Clocked Out), `data-test="presence-present"` / `presence-absent`.
 - `AttendanceHistoryService` (new methods; the old single-table `all()`, `totals()`, `filtered()` and `clockedInNow()` are removed because nothing uses them any more):
   - `employees(): Builder<User>` — everyone who can clock in (`User::permission('attendance.clock')`), active and not archived, ordered by `last_name`, then `first_name`.
@@ -1089,6 +1090,8 @@ The last three tickets make every sensitive change traceable, give the client ex
   - Filters: Date (`flux:input type="date"`, default today) and Employee (`flux:select`, first option "All employees", default All; the list shows "Last, First (EMP-0042)" ordered by last name), `<x-filter-chip>`s and "Clear filters" when not on today / All.
   - Stat cards: Employees, Present (green), Absent (gray), Labor cost for that date.
   - Table: Name (`<x-avatar>` + "Last, First"), Project, In, Out, Worked time, Rate, Labor cost, Photos, Status (Present / Absent). An employee with several attendance records that day (e.g. morning and afternoon) gets one row per record, with the name and Status on the first row only; an Absent employee gets a single row with dashes and the gray "Absent" badge. Ordered by last name ascending. Total row: labor cost for the date. Phones: one card per employee with the presence badge and their attendance under it.
+  - Project filter ("All projects" or one Ongoing project, `?project=`): lists only the employees who worked on that project that day, each with only that project's attendance; the stat cards and Total use the same filter.
+  - Sort by (`?sort=`, default Name): Name (last name A–Z), Project (project of their first attendance that day, A–Z) or Worked time (most hours that day first). Absent employees come after the present ones, by name. Sorting uses subqueries, so each employee stays one row; an unknown value falls back to Name; Clear filters resets the project and the sort.
   - Empty state when the employee filter matches nobody: "No employees to show."
 - **By employee** tab:
   - Filters: Employee (`flux:select` with the placeholder "Select employee", default none) and From / To dates (default this week, same as today's page).

@@ -1,4 +1,4 @@
-{{-- Daily attendance tab (T-11.4): every employee on one date, sorted by last name, Present or Absent. --}}
+{{-- Daily attendance tab (T-11.4): every employee on one date, Present or Absent; filter by employee or project, sort by name, project or worked time. --}}
 @php($isToday = $date === $today)
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -10,8 +10,8 @@
 
 {{-- Filters --}}
 <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
-    <div class="grid gap-3 sm:grid-cols-4">
-        <flux:input type="date" wire:model.live="date" :aria-label="__('Date')" data-test="filter-date" />
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <flux:input class="sm:w-44" type="date" wire:model.live="date" :aria-label="__('Date')" data-test="filter-date" />
 
         <flux:select wire:model.live="user" :aria-label="__('Filter by employee')" data-test="filter-user">
             <flux:select.option value="">{{ __('All employees') }}</flux:select.option>
@@ -22,7 +22,7 @@
         <flux:select wire:model.live="project" :aria-label="__('Filter by project')" data-test="filter-project">
             <flux:select.option value="">{{ __('All projects') }}</flux:select.option>
             @foreach ($this->projects as $proj)
-                <flux:select.option :value="$proj->id">{{ $proj->name }}</flux:select.option>
+                <flux:select.option :value="$proj->id">{{ $proj->code }} · {{ $proj->name }}</flux:select.option>
             @endforeach
         </flux:select>
         <flux:select wire:model.live="sortBy" :aria-label="__('Sort by')" data-test="filter-sort-by">
@@ -32,13 +32,16 @@
         </flux:select>
     </div>
 
-    @if (! $isToday || $user !== '')
+    @if (! $isToday || $user !== '' || $project !== '')
         <div class="mt-3 flex flex-wrap items-center gap-2" data-test="active-filters">
             @unless ($isToday)
                 <x-filter-chip :label="__('Date: :value', ['value' => \Illuminate\Support\Carbon::parse($date)->format('M j, Y')])" wire:click="$set('date', '{{ $today }}')" />
             @endunless
             @if ($user !== '')
                 <x-filter-chip :label="__('Employee: :value', ['value' => $this->users->firstWhere('id', (int) $user)?->listName()])" wire:click="$set('user', '')" />
+            @endif
+            @if ($project !== '')
+                <x-filter-chip :label="__('Project: :value', ['value' => $this->projectName])" wire:click="$set('project', '')" />
             @endif
             <button type="button" wire:click="clearFilters" class="text-xs font-medium text-brand-blue hover:text-brand-blue-dark hover:underline">
                 {{ __('Clear filters') }}
@@ -87,7 +90,7 @@
                                 @include('livewire.attendance.partials.attendance-cells', ['attendance' => $attendance])
                                 <flux:table.cell>
                                     @if ($loop->first)
-                                        @include('livewire.attendance.partials.presence-badge', ['present' => $row['present']])
+                                        @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
                                     @endif
                                 </flux:table.cell>
                             </flux:table.row>
@@ -112,7 +115,7 @@
                             <x-avatar :name="$row['user']->name" :initials="$row['user']->initials()" size="sm" />
                             <span class="truncate font-semibold text-brand-navy">{{ $row['user']->listName() }}</span>
                         </div>
-                        @include('livewire.attendance.partials.presence-badge', ['present' => $row['present']])
+                        @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
                     </div>
                     @foreach ($row['attendances'] as $attendance)
                         @include('livewire.attendance.partials.attendance-line', ['attendance' => $attendance])

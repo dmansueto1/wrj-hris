@@ -20,7 +20,7 @@ use Livewire\Component;
  * like All Attendance's By employee tab, with hours only. No peso amounts and no photos, whatever
  * the role.
  *
- * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}> $days
+ * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $days
  * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string} $totals
  * @property-read array{from: string, to: string, shortened: bool} $range
  */
@@ -62,7 +62,7 @@ class Mine extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}>
+     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     #[Computed]
     public function days(): LengthAwarePaginator

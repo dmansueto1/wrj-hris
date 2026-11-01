@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -180,6 +181,115 @@ class AllAttendanceTest extends TestCase
         $this->assertCount(3, $component->instance()->daily->items());
     }
 
+    public function testTheProjectFilterShowsOnlyWhoWorkedOnThatProject(): void
+    {
+        $this->signInAdmin();
+        $riverside = Project::factory()->ongoing()->create(['name' => 'Riverside Townhomes']);
+        $hillcrest = Project::factory()->ongoing()->create(['name' => 'Hillcrest Warehouse']);
+        $abad = $this->worker('Ana', 'Abad');
+        $bautista = $this->worker('Ben', 'Bautista');
+        $this->worker('Carl', 'Cruz'); // absent
+        Attendance::factory()->for($abad)->for($riverside)->onDate('2026-10-21')->create();
+        // Bautista: morning on Hillcrest, afternoon on Riverside.
+        Attendance::factory()->for($bautista)->for($hillcrest)->onDate('2026-10-21')->create();
+        Attendance::factory()->for($bautista)->for($riverside)->create([
+            'work_date' => '2026-10-21',
+            'clock_in_at' => '2026-10-21 12:30:00',
+            'clock_out_at' => '2026-10-21 17:00:00',
+        ]);
+
+        $component = Livewire::test(Index::class)
+            ->assertSee('All projects')
+            ->set('project', (string) $riverside->id);
+
+        // Only the two who worked on Riverside, each with only their Riverside record.
+        $this->assertSame([$abad->id, $bautista->id], $this->listedIds($component));
+        $this->assertSame(
+            [[$riverside->id], [$riverside->id]],
+            collect($component->instance()->daily->items())->map(fn (array $row) => $row['attendances']->pluck('project_id')->all())->all(),
+        );
+        // Two people present on Riverside, ₱ 720.00 of Riverside labor (2 × 4.50 h at ₱ 80.00).
+        $this->assertSame(
+            ['employees' => 2, 'present' => 2, 'absent' => 0, 'labor_cost' => '720.00'],
+            $component->instance()->dailySummary,
+        );
+        $component->assertSeeHtml('data-test="active-filters"')
+            ->assertSee('Project: Riverside Townhomes')
+            ->call('clearFilters')
+            ->assertSet('project', '');
+    }
+
+    public function testTheProjectChipNamesAProjectThatIsNoLongerOngoing(): void
+    {
+        $this->signInAdmin();
+        $completed = Project::factory()->completed()->create(['code' => 'PRJ-007', 'name' => 'Old Warehouse']);
+        Attendance::factory()->for($this->worker('Ana', 'Abad'))->for($completed)->onDate('2026-10-21')->create();
+
+        $component = Livewire::test(Index::class)
+            ->set('project', (string) $completed->id)
+            ->assertSee('Project: Old Warehouse');
+        $this->assertSame(1, $component->instance()->daily->total());
+    }
+
+    public function testTheProjectDropdownShowsCodeAndName(): void
+    {
+        $this->signInAdmin();
+        Project::factory()->ongoing()->create(['code' => 'PRJ-001', 'name' => 'Riverside Townhomes']);
+
+        Livewire::test(Index::class)->assertSee('PRJ-001 · Riverside Townhomes');
+    }
+
+    public function testSortByProjectAndByWorkedTime(): void
+    {
+        $this->signInAdmin(); // Zamora, absent
+        $zulu = Project::factory()->ongoing()->create(['name' => 'Zulu Tower']);
+        $alpha = Project::factory()->ongoing()->create(['name' => 'Alpha Homes']);
+        $abad = $this->worker('Ana', 'Abad');           // Zulu, 4.50 h
+        $bautista = $this->worker('Ben', 'Bautista');   // Alpha, 4.50 + 4.50 h
+        $cruz = $this->worker('Carl', 'Cruz');          // absent
+        Attendance::factory()->for($abad)->for($zulu)->onDate('2026-10-21')->create();
+        Attendance::factory()->for($bautista)->for($alpha)->onDate('2026-10-21')->create();
+        Attendance::factory()->for($bautista)->for($alpha)->create([
+            'work_date' => '2026-10-21',
+            'clock_in_at' => '2026-10-21 12:30:00',
+            'clock_out_at' => '2026-10-21 17:00:00',
+        ]);
+
+        $component = Livewire::test(Index::class)->assertSet('sortBy', 'name');
+        $this->assertSame(['Abad', 'Bautista', 'Cruz', 'Zamora'], $this->listedLastNames($component));
+
+        // Project A–Z; absent people last, by last name.
+        $component->set('sortBy', 'project');
+        $this->assertSame(['Bautista', 'Abad', 'Cruz', 'Zamora'], $this->listedLastNames($component));
+
+        // Most worked time first; absent people last, by last name.
+        $component->set('sortBy', 'worked_time');
+        $this->assertSame(['Bautista', 'Abad', 'Cruz', 'Zamora'], $this->listedLastNames($component));
+
+        // An unknown sort falls back to Name.
+        $component->set('sortBy', 'salary')->assertSet('sortBy', 'name');
+        $this->assertSame(['Abad', 'Bautista', 'Cruz', 'Zamora'], $this->listedLastNames($component));
+    }
+
+    public function testSortingKeepsEachEmployeeOnOneRowAndTheCountsRight(): void
+    {
+        $this->signInAdmin();
+        $worker = $this->worker('Ana', 'Abad');
+        foreach (['07:00', '13:00'] as $time) {
+            Attendance::factory()->for($worker)->create([
+                'work_date' => '2026-10-21',
+                'clock_in_at' => "2026-10-21 {$time}:00",
+                'clock_out_at' => Carbon::parse("2026-10-21 {$time}:00")->addMinutes(270),
+            ]);
+        }
+
+        foreach (['project', 'worked_time'] as $sort) {
+            $component = Livewire::test(Index::class)->set('sortBy', $sort);
+            $this->assertSame(2, $component->instance()->daily->total(), $sort); // Abad and the admin, once each
+            $this->assertSame(2, $component->instance()->dailySummary['employees'], $sort);
+        }
+    }
+
     // ---- By employee tab --------------------------------------------------------------------
 
     public function testTheByEmployeeTabWaitsForAnEmployee(): void
@@ -223,11 +333,46 @@ class AllAttendanceTest extends TestCase
         ], $days);
 
         $this->assertSame(
-            ['present_days' => 2, 'absent_days' => 5, 'hours' => '9.00', 'labor_cost' => '720.00'],
+            // Today is the 21st: only the 20th is absent; the 22nd to the 25th have not happened yet.
+            ['present_days' => 2, 'absent_days' => 1, 'hours' => '9.00', 'labor_cost' => '720.00'],
             $component->instance()->employeeSummary,
         );
         $component->assertSeeHtml('data-test="employee-total-hours">9.00 h')
             ->assertSeeHtml('data-test="employee-total-labor-cost">₱ 720.00');
+    }
+
+    public function testFutureDaysShowADashInsteadOfAbsent(): void
+    {
+        $this->signInAdmin();
+        $worker = $this->worker('Ana', 'Abad');
+        Attendance::factory()->for($worker)->onDate('2026-10-19')->create();
+
+        // Daily attendance for tomorrow: nobody is Absent yet.
+        $daily = Livewire::test(Index::class)
+            ->set('date', '2026-10-22')
+            ->assertSeeHtml('data-test="presence-none"')
+            ->assertDontSeeHtml('data-test="presence-absent"');
+        $this->assertTrue($daily->instance()->daily->items()[0]['future']);
+        $this->assertSame(['employees' => 2, 'present' => 0, 'absent' => 0, 'labor_cost' => '0.00'], $daily->instance()->dailySummary);
+
+        // By employee for this week: Monday present, Tuesday and today absent, the rest still to come.
+        $byEmployee = Livewire::test(Index::class)
+            ->set('tab', 'employee')
+            ->set('employee', (string) $worker->id);
+        $states = collect($byEmployee->instance()->employeeDays->items())
+            ->mapWithKeys(fn (array $day) => [$day['date']->toDateString() => $day['future'] ? 'future' : ($day['present'] ? 'present' : 'absent')])
+            ->all();
+        $this->assertSame([
+            '2026-10-25' => 'future',
+            '2026-10-24' => 'future',
+            '2026-10-23' => 'future',
+            '2026-10-22' => 'future',
+            '2026-10-21' => 'absent',
+            '2026-10-20' => 'absent',
+            '2026-10-19' => 'present',
+        ], $states);
+        $this->assertSame(2, $byEmployee->instance()->employeeSummary['absent_days']);
+        $byEmployee->assertSeeHtml('data-test="presence-none"');
     }
 
     public function testARangeLongerThan92DaysIsShortened(): void
@@ -412,6 +557,14 @@ class AllAttendanceTest extends TestCase
     {
         return (bool) collect($component->instance()->daily->items())
             ->first(fn (array $row) => $row['user']->id === $user->id)['present'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function listedLastNames(Testable $component): array
+    {
+        return collect($component->instance()->daily->items())->map(fn (array $row) => $row['user']->last_name)->values()->all();
     }
 
     /**

@@ -94,7 +94,7 @@
                                 @include('livewire.attendance.partials.attendance-cells', ['attendance' => $attendance])
                                 <flux:table.cell>
                                     @if ($loop->first)
-                                        @include('livewire.attendance.partials.presence-badge', ['present' => $day['present']])
+                                        @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
                                     @endif
                                 </flux:table.cell>
                             </flux:table.row>
@@ -118,7 +118,7 @@
                 <li wire:key="day-card-{{ $day['date']->toDateString() }}" class="flex flex-col gap-2 p-4">
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-semibold text-brand-navy">{{ $day['date']->format('l, M j') }}</span>
-                        @include('livewire.attendance.partials.presence-badge', ['present' => $day['present']])
+                        @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
                     </div>
                     @foreach ($day['attendances'] as $attendance)
                         @include('livewire.attendance.partials.attendance-line', ['attendance' => $attendance])

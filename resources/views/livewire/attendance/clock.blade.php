@@ -63,7 +63,7 @@
                     {{-- Opens the confirmation; the camera step is inside it when a photo is required. --}}
                     <button
                         type="button"
-                        class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
+                        class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-neutral px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-neutral/90 disabled:opacity-60"
                         x-on:click="$flux.modal('confirm-clock-out').show()"
                         wire:loading.attr="disabled"
                         x-bind:disabled="busy"
@@ -77,7 +77,7 @@
                 <x-clock-photo-modal
                     name="confirm-clock-out"
                     action="clockOut"
-                    tone="danger"
+                    tone="out"
                     :title="__('Clock out now?')"
                     :description="$photoRequired
                         ? __('Take a photo of yourself. This ends your attendance on :project.', ['project' => $session->project->name])
@@ -116,7 +116,7 @@
                         {{-- Enabled once a project is chosen. With a photo required it opens the camera modal. --}}
                         <button
                             type="button"
-                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gold px-5 font-semibold text-brand-navy shadow-card transition-colors duration-150 hover:bg-brand-orange hover:text-white disabled:opacity-60"
+                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-success/90 disabled:opacity-60"
                             x-on:click="@js($photoRequired) ? $flux.modal('clock-in-photo').show() : clock('clockIn')"
                             x-bind:disabled="busy || ! $wire.projectId"
                             wire:loading.attr="disabled"

@@ -9,7 +9,7 @@
     'title',
     'description' => null,
     'confirmLabel',
-    'tone' => 'gold',
+    'tone' => 'in', // in (green) or out (gray)
     'withCamera' => true,
     'confirmTest' => null,
 ])
@@ -28,12 +28,13 @@
         @endif
 
         <div class="flex flex-col gap-2 sm:flex-row-reverse">
+            {{-- Same colors as the statuses: Clock In green like "Clocked In", Clock Out gray like "Clocked Out". --}}
             <button
                 type="button"
                 @class([
                     'flex h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 font-semibold shadow-card transition-colors duration-150 disabled:opacity-50',
-                    'bg-brand-gold text-brand-navy hover:bg-brand-orange hover:text-white' => $tone === 'gold',
-                    'bg-danger text-white hover:bg-danger/90' => $tone === 'danger',
+                    'bg-success text-white hover:bg-success/90' => $tone === 'in',
+                    'bg-neutral text-white hover:bg-neutral/90' => $tone === 'out',
                 ])
                 x-on:click="clock(@js($action))"
                 x-bind:disabled="busy{{ $withCamera ? ' || ! $wire.photo' : '' }}"

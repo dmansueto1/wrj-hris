@@ -20,6 +20,9 @@ use Throwable;
  */
 class AttendanceHistoryService
 {
+    /** Daily attendance sort orders: last name A–Z, project A–Z, most worked time first. */
+    public const DAILY_SORTS = ['name', 'project', 'worked_time'];
+
     /** The By employee tab shows at most this many days (T-11.4). */
     public const MAX_RANGE_DAYS = 92;
 
@@ -76,41 +79,50 @@ class AttendanceHistoryService
     }
 
     /**
-     * Daily attendance (T-11.4): one item per employee for the date, sorted by last name, Present
-     * when they have attendance that is not void. Inactive or archived employees appear only when
-     * they have attendance on that date, so no record is hidden.
+     * Daily attendance (T-11.4): one item per employee for the date, Present when they have
+     * attendance that is not void. Inactive or archived employees appear only when they have
+     * attendance on that date, so no record is hidden. With a project, only the employees who
+     * worked on it that day are listed, with only that project's attendance.
      *
-     * @return LengthAwarePaginator<int, array{user: User, present: bool, attendances: EloquentCollection<int, Attendance>}>
+     * Sorted by `name` (last name A–Z), `project` (the project of their first attendance that day,
+     * A–Z) or `worked_time` (most hours that day first); absent employees come after, by name.
+     *
+     * A future date is neither Present nor Absent yet: its items have `future = true`.
+     *
+     * @return LengthAwarePaginator<int, array{user: User, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
      */
-    public function daily(string $date, ?int $userId, int $perPage, string $project, string $sortBy): LengthAwarePaginator
+    public function daily(string $date, ?int $userId, ?int $projectId, string $sortBy, int $perPage): LengthAwarePaginator
     {
-        $users = $this->dailyEmployees($date, $userId, $project, $sortBy)->paginate($perPage);
+        $users = $this->sorted($this->dailyEmployees($date, $userId, $projectId), $date, $projectId, $sortBy)->paginate($perPage);
 
-        $attendances = $this->presentOn($date)
+        $attendances = $this->presentOn($date, $projectId)
             ->with('project')
             ->whereIn('user_id', $users->getCollection()->modelKeys())
             ->orderBy('clock_in_at')
             ->get();
 
-        return $users->through(function (User $user) use ($attendances) {
+        $future = $date > now()->toDateString();
+
+        return $users->through(function (User $user) use ($attendances, $future) {
             // Each attendance gets its row's user (archived ones too) without another query.
             $own = $attendances->filter(fn (Attendance $attendance) => $attendance->user_id === $user->id)->values()
                 ->each(fn (Attendance $attendance) => $attendance->setRelation('user', $user));
 
-            return ['user' => $user, 'present' => $own->isNotEmpty(), 'attendances' => $own];
+            return ['user' => $user, 'present' => $own->isNotEmpty(), 'future' => $future, 'attendances' => $own];
         });
     }
 
     /**
-     * Counts for the Daily attendance stat cards, and the date's labor cost (closed and adjusted).
+     * Counts for the Daily attendance stat cards, and the date's labor cost (closed and adjusted),
+     * for the same employee and project filters as daily().
      *
      * @return array{employees: int, present: int, absent: int, labor_cost: string}
      */
-    public function dailySummary(string $date, ?int $userId, ?int $project, ?string $sortBy): array
+    public function dailySummary(string $date, ?int $userId, ?int $projectId): array
     {
-        $employees = $this->dailyEmployees($date, $userId, $project, $sortBy)->count();
+        $employees = $this->dailyEmployees($date, $userId, $projectId)->count();
 
-        $present = $this->presentOn($date)
+        $present = $this->presentOn($date, $projectId)
             ->when($userId, fn (Builder $query, int $id) => $query->where('user_id', $id))
             ->distinct()
             ->count('user_id');
@@ -119,12 +131,14 @@ class AttendanceHistoryService
             ->counted()
             ->where('work_date', $date)
             ->when($userId, fn (Builder $query, int $id) => $query->where('user_id', $id))
+            ->when($projectId, fn (Builder $query, int $id) => $query->where('project_id', $id))
             ->sum('labor_cost');
 
         return [
             'employees' => $employees,
             'present' => $present,
-            'absent' => $employees - $present,
+            // Nobody is absent on a day that has not happened yet.
+            'absent' => $date > now()->toDateString() ? 0 : $employees - $present,
             'labor_cost' => $this->hundredths((string) $laborCost),
         ];
     }
@@ -147,7 +161,9 @@ class AttendanceHistoryService
      * By employee (T-11.4): one item per date in the range, newest first, one page of days at a
      * time. Days without attendance (void left out) are Absent.
      *
-     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, attendances: EloquentCollection<int, Attendance>}>
+     * Days after today have `future = true`: neither Present nor Absent yet.
+     *
+     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     public function employeeDays(int $userId, string $from, string $to, int $perPage): LengthAwarePaginator
     {
@@ -173,10 +189,12 @@ class AttendanceHistoryService
                 ->orderBy('clock_in_at')
                 ->get();
 
-        $items = $dates->map(function (Carbon $date) use ($attendances) {
+        $today = now()->toDateString();
+
+        $items = $dates->map(function (Carbon $date) use ($attendances, $today) {
             $own = $attendances->filter(fn (Attendance $attendance) => $attendance->work_date->isSameDay($date))->values();
 
-            return ['date' => $date, 'present' => $own->isNotEmpty(), 'attendances' => $own];
+            return ['date' => $date, 'present' => $own->isNotEmpty(), 'future' => $date->toDateString() > $today, 'attendances' => $own];
         })->values()->all();
 
         return new Paginator($items, $total, $perPage, $page, [
@@ -194,7 +212,9 @@ class AttendanceHistoryService
     {
         ['from' => $from, 'to' => $to] = $this->cappedRange($from, $to);
 
-        $days = (int) Carbon::parse($from)->diffInDays(Carbon::parse($to)) + 1;
+        // Absent days are counted only up to today: later days have not happened yet.
+        $today = now()->toDateString();
+        $pastDays = $from > $today ? 0 : (int) Carbon::parse($from)->diffInDays(Carbon::parse(min($to, $today))) + 1;
 
         $presentDays = Attendance::query()
             ->where('user_id', $userId)
@@ -213,7 +233,7 @@ class AttendanceHistoryService
 
         return [
             'present_days' => $presentDays,
-            'absent_days' => $days - $presentDays,
+            'absent_days' => max(0, $pastDays - $presentDays),
             'hours' => $this->hundredths((string) ($sums->hours ?? '0')),
             'labor_cost' => $this->hundredths((string) ($sums->labor_cost ?? '0')),
         ];
@@ -221,47 +241,58 @@ class AttendanceHistoryService
 
     /**
      * Employees listed on a date: active employees, plus anyone (inactive or archived too) with
-     * attendance that day.
+     * attendance that day. With a project, only those who worked on it that day. Not sorted.
      *
      * @return Builder<User>
      */
-    private function dailyEmployees(string $date, ?int $userId, ?int $project, ?string $sortBy): Builder
+    private function dailyEmployees(string $date, ?int $userId, ?int $projectId): Builder
     {
-        $user = User::withTrashed()
-            ->where(function (Builder $query) use ($date) {
-                $query->whereIn('users.id', $this->employees()->select('users.id'))
-                    ->orWhereHas('attendances', fn (Builder $attendance) => $attendance
-                        ->where('work_date', $date)
-                        ->whereIn('status', Attendance::PRESENT_STATUSES));
-            })
+        return User::withTrashed()
+            ->when(
+                $projectId,
+                fn (Builder $query, int $id) => $query->whereHas('attendances', fn (Builder $attendance) => $attendance
+                    ->where('work_date', $date)
+                    ->whereIn('status', Attendance::PRESENT_STATUSES)
+                    ->where('project_id', $id)),
+                fn (Builder $query) => $query->where(function (Builder $query) use ($date) {
+                    $query->whereIn('users.id', $this->employees()->select('users.id'))
+                        ->orWhereHas('attendances', fn (Builder $attendance) => $attendance
+                            ->where('work_date', $date)
+                            ->whereIn('status', Attendance::PRESENT_STATUSES));
+                }),
+            )
             ->when($userId, fn (Builder $query, int $id) => $query->whereKey($id));
+    }
 
-            // if($sortBy === 'name') {
-                return $user->orderBy('last_name')
-                    ->orderBy('first_name')
-                    ->orderBy('id');
-            // } 
-            // elseif($sortBy === 'project') {
-            //     return $user->leftJoin('attendances', function ($join) use ($project) {
-            //         $join->leftJoin('projects', 'projects.id', '=', 'attendances.project_id')
-            //             ->where('attendances.id', '=', $project);
-            //     })
-            //         ->orderBy('projects.name')
-            //         ->orderBy('last_name')
-            //         ->orderBy('first_name');
-            // } 
-            // elseif($sortBy === 'worked_time') {
-            //     return $user->leftJoin('attendances', function ($join) use ($date) {
-            //         $join->on('users.id', '=', 'attendances.user_id')
-            //             ->where('attendances.work_date', '=', $date)
-            //             ->whereIn('attendances.status', Attendance::PRESENT_STATUSES);
-            //     })
-            //     ->select('users.*')
-            //     ->orderByRaw('COALESCE(attendances.hours_worked, 0) DESC')
-            //     ->orderBy('last_name')
-            //     ->orderBy('first_name')
-            //     ->orderBy('id');
-            // }
+    /**
+     * Order the Daily attendance list. Sorting by project or worked time uses a subquery per
+     * employee (no join), so an employee with two attendance records is still one row.
+     *
+     * @param  Builder<User>  $users
+     * @return Builder<User>
+     */
+    private function sorted(Builder $users, string $date, ?int $projectId, string $sortBy): Builder
+    {
+        $theirs = fn () => $this->presentOn($date, $projectId)->whereColumn('attendances.user_id', 'users.id');
+        // 1 when present that day, 0 when absent: ordering by it descending puts absent employees last.
+        $present = fn () => $theirs()->selectRaw('COUNT(*) > 0');
+
+        if ($sortBy === 'project') {
+            // The project of their first attendance that day, A–Z.
+            $firstProject = $theirs()
+                ->join('projects', 'projects.id', '=', 'attendances.project_id')
+                ->orderBy('attendances.clock_in_at')
+                ->limit(1)
+                ->select('projects.name');
+
+            $users->orderByDesc($present())->orderBy($firstProject);
+        } elseif ($sortBy === 'worked_time') {
+            // Most hours that day first (Clocked In counts as 0 until clocked out).
+            $users->orderByDesc($theirs()->selectRaw('COALESCE(SUM(attendances.hours_worked), 0)'))
+                ->orderByDesc($present());
+        }
+
+        return $users->orderBy('last_name')->orderBy('first_name')->orderBy('users.id');
     }
 
     /**
@@ -269,9 +300,13 @@ class AttendanceHistoryService
      *
      * @return Builder<Attendance>
      */
-    private function presentOn(string $date): Builder
+    private function presentOn(string $date, ?int $projectId = null): Builder
     {
-        return Attendance::query()->where('work_date', $date)->whereIn('status', Attendance::PRESENT_STATUSES);
+        // Qualified: the project sort joins projects, which has its own status column.
+        return Attendance::query()
+            ->where('attendances.work_date', $date)
+            ->whereIn('attendances.status', Attendance::PRESENT_STATUSES)
+            ->when($projectId, fn (Builder $query, int $id) => $query->where('attendances.project_id', $id));
     }
 
     /**

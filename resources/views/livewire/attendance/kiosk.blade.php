@@ -127,7 +127,7 @@
 
                         <button
                             type="button"
-                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-danger px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-danger/90 disabled:opacity-60"
+                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-neutral px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-neutral/90 disabled:opacity-60"
                             x-on:click="@js($photoRequired) ? $flux.modal('kiosk-photo-out').show() : clock('clockOut')"
                             x-bind:disabled="busy"
                             wire:loading.attr="disabled"
@@ -142,7 +142,7 @@
                             <x-clock-photo-modal
                                 name="kiosk-photo-out"
                                 action="clockOut"
-                                tone="danger"
+                                tone="out"
                                 :title="__('Take your photo')"
                                 :description="__('A photo of you is saved with your clock out.')"
                                 :confirm-label="__('Clock Out')"
@@ -168,7 +168,7 @@
 
                         <button
                             type="button"
-                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gold px-5 font-semibold text-brand-navy shadow-card transition-colors duration-150 hover:bg-brand-orange hover:text-white disabled:opacity-60"
+                            class="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-success px-5 font-semibold text-white shadow-card transition-colors duration-150 hover:bg-success/90 disabled:opacity-60"
                             x-on:click="@js($photoRequired) ? $flux.modal('kiosk-photo-in').show() : clock('clockIn')"
                             x-bind:disabled="busy || ! $wire.projectId"
                             wire:loading.attr="disabled"
