@@ -25,6 +25,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $last_name
  * @property string $name
  * @property string $username
+ * @property string $shift_type
  * @property string|null $email
  * @property string|null $position
  * @property string $hourly_rate
@@ -53,6 +54,19 @@ class User extends Authenticatable
 
     public const ROLES = ['admin', 'staff', 'worker'];
 
+    /** Shift types (T-11.2). Flexible: hours count exactly as clocked. */
+    public const SHIFT_ONE = 'one';
+
+    public const SHIFT_TWO = 'two';
+
+    public const SHIFT_FLEXIBLE = 'flexible';
+
+    public const SHIFT_TYPES = [
+        self::SHIFT_ONE => 'One shift a day',
+        self::SHIFT_TWO => 'Two shifts a day (morning and afternoon)',
+        self::SHIFT_FLEXIBLE => 'Flexible (no fixed schedule)',
+    ];
+
     /**
      * The model's default values for attributes.
      *
@@ -61,6 +75,7 @@ class User extends Authenticatable
     protected $attributes = [
         'hourly_rate' => '0.00',
         'status' => self::STATUS_ACTIVE,
+        'shift_type' => self::SHIFT_FLEXIBLE,
         'must_change_password' => false,
     ];
 
@@ -113,6 +128,16 @@ class User extends Authenticatable
     public function rateHistories(): HasMany
     {
         return $this->hasMany(UserRateHistory::class);
+    }
+
+    /**
+     * The weekly shift, Monday (1) to Sunday (7). Empty for Flexible.
+     *
+     * @return HasMany<UserShift, $this>
+     */
+    public function shifts(): HasMany
+    {
+        return $this->hasMany(UserShift::class)->orderBy('weekday');
     }
 
     /**

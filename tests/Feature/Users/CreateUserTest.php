@@ -32,6 +32,90 @@ class CreateUserTest extends TestCase
         $this->assertSame($admin->id, $worker->rateHistories()->sole()->changed_by);
     }
 
+    public function testANewUserStartsWithTwoShiftsADayAndSundayOff(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->fillForm()
+            ->assertSee('Two shifts a day')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $worker = User::where('employee_no', 'EMP-0500')->sole();
+        $this->assertSame(User::SHIFT_TWO, $worker->shift_type);
+        $this->assertSame(7, $worker->shifts()->count());
+
+        $monday = $worker->shifts()->where('weekday', 1)->sole();
+        $this->assertFalse($monday->is_rest_day);
+        $this->assertSame(['08:00', '12:00', '13:00', '17:00'], [$monday->first_in, $monday->first_out, $monday->second_in, $monday->second_out]);
+
+        $sunday = $worker->shifts()->where('weekday', 7)->sole();
+        $this->assertTrue($sunday->is_rest_day);
+        $this->assertNull($sunday->first_in);
+    }
+
+    public function testTheAddUserFormHasTheShiftCardStartingWithTwoShifts(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        Livewire::test(Create::class)
+            ->assertSeeHtml('data-test="shift-card"')
+            ->assertSee('Shift type')
+            ->assertSet('type', User::SHIFT_TWO)
+            ->assertSet('days.1.first_in', '08:00')
+            ->assertSet('days.1.second_out', '17:00')
+            ->assertSet('days.7.is_rest_day', true)
+            ->assertSee('Working days: Mon–Sat · Rest day: Sun')
+            ->assertDontSeeHtml('data-test="save-shift-button"');
+    }
+
+    public function testTheAdminChoosesAndEditsTheShiftWhileCreatingTheUser(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->fillForm()
+            // Untouched defaults switch to the One shift defaults (08:00–17:00).
+            ->set('type', User::SHIFT_ONE)
+            ->assertSet('days.1.first_out', '17:00')
+            ->set('days.1.first_in', '07:00')
+            ->set('days.6.is_rest_day', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $worker = User::where('employee_no', 'EMP-0500')->sole();
+        $this->assertSame(User::SHIFT_ONE, $worker->shift_type);
+
+        $monday = $worker->shifts()->where('weekday', 1)->sole();
+        $this->assertSame(['07:00', '17:00', null, null], [$monday->first_in, $monday->first_out, $monday->second_in, $monday->second_out]);
+        $this->assertTrue($worker->shifts()->where('weekday', 6)->sole()->is_rest_day);
+        $this->assertTrue($worker->shifts()->where('weekday', 7)->sole()->is_rest_day);
+    }
+
+    public function testAFlexibleNewUserHasNoWeek(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->fillForm()->set('type', User::SHIFT_FLEXIBLE)->call('save')->assertHasNoErrors();
+
+        $worker = User::where('employee_no', 'EMP-0500')->sole();
+        $this->assertSame(User::SHIFT_FLEXIBLE, $worker->shift_type);
+        $this->assertSame(0, $worker->shifts()->count());
+    }
+
+    public function testAnInvalidShiftShowsItsErrorsWithTheOtherFieldsAndCreatesNoUser(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        $this->fillForm()
+            ->set('first_name', '')
+            ->set('days.2.second_out', '')
+            ->call('save')
+            // Both at once: the details field and the shift time.
+            ->assertHasErrors(['first_name', 'days.2.second_out']);
+
+        $this->assertFalse(User::where('employee_no', 'EMP-0500')->exists());
+    }
+
     public function testAfterSavingTheAdminSeesTheGeneratedUsername(): void
     {
         $this->actingAs(User::factory()->admin()->create());

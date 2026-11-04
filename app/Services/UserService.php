@@ -8,17 +8,23 @@ use Illuminate\Validation\ValidationException;
 
 class UserService
 {
-    public function __construct(private UserRateService $rates) {}
+    /** The shift every new user starts with (T-11.2); changed on the user's page. */
+    public const NEW_USER_SHIFT = User::SHIFT_TWO;
+
+    public function __construct(private UserRateService $rates, private UserShiftService $shifts) {}
 
     /**
      * Create a user with a temporary password they must change at first login.
      * The username is generated and the first rate-history row is written by the User model.
+     * The shift chosen on Add user is saved with the user (T-11.2); without one, the user starts
+     * with Two shifts a day: Monday to Saturday 08:00–12:00 and 13:00–17:00, Sunday as rest day.
      *
      * @param  array{employee_no: string, first_name: string, last_name: string, email: ?string, role: string, position: ?string, hourly_rate: string, password: string}  $data
+     * @param  array<int|string, array<string, mixed>>|null  $shiftDays
      */
-    public function create(array $data): User
+    public function create(array $data, string $shiftType = self::NEW_USER_SHIFT, ?array $shiftDays = null): User
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $shiftType, $shiftDays) {
             $user = new User;
             $user->forceFill([
                 'employee_no' => $data['employee_no'],
@@ -33,6 +39,7 @@ class UserService
             ])->save();
 
             $user->assignRole($data['role']);
+            $this->shifts->startWith($user, $shiftType, $shiftDays);
 
             return $user;
         });
