@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -198,6 +199,15 @@ class Index extends Component
     public function projectName(): ?string
     {
         return ctype_digit($this->project) ? Project::withTrashed()->find((int) $this->project)?->name : null;
+    }
+
+    /**
+     * Re-render with the corrected figures after the correction modal saves (T-12).
+     */
+    #[On('attendance-corrected')]
+    public function refreshAfterCorrection(): void
+    {
+        unset($this->daily, $this->dailySummary, $this->employeeDays, $this->employeeSummary);
     }
 
     public function render(): View

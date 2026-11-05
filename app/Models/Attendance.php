@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
@@ -34,13 +36,15 @@ use Illuminate\Support\Carbon;
  * @property string|null $clock_out_photo_path
  * @property int|null $adjusted_by
  * @property string|null $adjustment_reason
+ * @property int|null $corrected_from_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
  */
 class Attendance extends Model
 {
     /** @use HasFactory<AttendanceFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     public const STATUS_OPEN = 'open';
 
@@ -129,7 +133,36 @@ class Attendance extends Model
      */
     public function adjustedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'adjusted_by');
+        return $this->belongsTo(User::class, 'adjusted_by')->withTrashed();
+    }
+
+    /**
+     * The archived attendance this record corrects (T-12); null for an original record.
+     *
+     * @return BelongsTo<Attendance, $this>
+     */
+    public function correctedFrom(): BelongsTo
+    {
+        return $this->belongsTo(Attendance::class, 'corrected_from_id')->withTrashed();
+    }
+
+    /**
+     * The record(s) a correction created from this one: one, or two after a split. Includes
+     * records that were corrected again.
+     *
+     * @return HasMany<Attendance, $this>
+     */
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(Attendance::class, 'corrected_from_id')->withTrashed();
+    }
+
+    /**
+     * True when this record was created by a correction, so it has an original to compare with.
+     */
+    public function isCorrection(): bool
+    {
+        return $this->corrected_from_id !== null;
     }
 
     public function statusLabel(): string

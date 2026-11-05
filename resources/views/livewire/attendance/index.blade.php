@@ -29,6 +29,11 @@
         @include('livewire.attendance.partials.daily-tab')
     @endif
 
+    {{-- One correction modal for every row (T-12, Admin only) --}}
+    @can('attendance.correct')
+        <livewire:attendance.correction />
+    @endcan
+
     {{-- One modal for every thumbnail: the clicked photo full size --}}
     <flux:modal name="attendance-photo" class="w-full max-w-lg">
         <div class="flex flex-col gap-4">

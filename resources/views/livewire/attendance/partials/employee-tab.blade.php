@@ -75,6 +75,9 @@
                     <flux:table.column>{{ __('Photos') }}</flux:table.column>
                     <flux:table.column class="w-32">{{ __('Remarks') }}</flux:table.column>
                     <flux:table.column>{{ __('Status') }}</flux:table.column>
+                    @can('attendance.correct')
+                        <flux:table.column align="end"><span>{{ __('Actions') }}</span></flux:table.column>
+                    @endcan
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -89,13 +92,18 @@
                             <flux:table.cell>
                                 @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
                             </flux:table.cell>
+                            @can('attendance.correct')
+                                <flux:table.cell align="end">
+                                    @include('livewire.attendance.partials.correct-menu', ['attendances' => $day['attendances'], 'key' => $day['date']->toDateString()])
+                                </flux:table.cell>
+                            @endcan
                         </flux:table.row>
                     @endforeach
 
                     <flux:table.row class="bg-brand-tint/50">
                         <flux:table.cell colspan="5" class="font-semibold text-brand-navy">{{ __('Total') }}</flux:table.cell>
                         <flux:table.cell align="end" class="whitespace-nowrap font-bold tabular-nums text-brand-navy"><span data-test="employee-total-hours">{{ $this->employeeSummary['hours'] }} h</span></flux:table.cell>
-                        <flux:table.cell colspan="3"></flux:table.cell>
+                        <flux:table.cell :colspan="auth()->user()->can('attendance.correct') ? 4 : 3"></flux:table.cell>
                     </flux:table.row>
                 </flux:table.rows>
             </flux:table>
@@ -107,7 +115,10 @@
                 <li wire:key="day-card-{{ $day['date']->toDateString() }}" class="flex flex-col gap-2 p-4">
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-semibold text-brand-navy">{{ $day['date']->format('l, M j') }}</span>
-                        @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
+                        <div class="flex shrink-0 items-center gap-1">
+                            @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
+                            @include('livewire.attendance.partials.correct-menu', ['attendances' => $day['attendances'], 'key' => $day['date']->toDateString()])
+                        </div>
                     </div>
                     @foreach ($day['attendances'] as $attendance)
                         @include('livewire.attendance.partials.attendance-line', ['attendance' => $attendance])

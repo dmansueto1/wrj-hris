@@ -14,7 +14,7 @@
 
         <span class="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-xs font-semibold text-success" data-test="kiosk-on-duty-count">
             <flux:icon icon="users" class="size-4" />
-            {{ trans_choice(':count present now|:count present now', $this->onDutyCount, ['count' => $this->onDutyCount]) }}
+            {{ trans_choice(':count clocked in now|:count clocked in now', $this->onDutyCount, ['count' => $this->onDutyCount]) }}
         </span>
     </div>
 

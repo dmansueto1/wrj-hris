@@ -68,6 +68,9 @@
                     <flux:table.column>{{ __('Photos') }}</flux:table.column>
                     <flux:table.column class="w-32">{{ __('Remarks') }}</flux:table.column>
                     <flux:table.column>{{ __('Status') }}</flux:table.column>
+                    @can('attendance.correct')
+                        <flux:table.column align="end"><span>{{ __('Actions') }}</span></flux:table.column>
+                    @endcan
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -85,6 +88,11 @@
                             <flux:table.cell>
                                 @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
                             </flux:table.cell>
+                            @can('attendance.correct')
+                                <flux:table.cell align="end">
+                                    @include('livewire.attendance.partials.correct-menu', ['attendances' => $row['attendances'], 'key' => $row['user']->id])
+                                </flux:table.cell>
+                            @endcan
                         </flux:table.row>
                     @endforeach
                 </flux:table.rows>
@@ -100,7 +108,10 @@
                             <x-avatar :name="$row['user']->name" :initials="$row['user']->initials()" size="sm" />
                             <span class="truncate font-semibold text-brand-navy">{{ $row['user']->listName() }}</span>
                         </div>
-                        @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
+                        <div class="flex shrink-0 items-center gap-1">
+                            @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
+                            @include('livewire.attendance.partials.correct-menu', ['attendances' => $row['attendances'], 'key' => $row['user']->id])
+                        </div>
                     </div>
                     @foreach ($row['attendances'] as $attendance)
                         @include('livewire.attendance.partials.attendance-line', ['attendance' => $attendance])

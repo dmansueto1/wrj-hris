@@ -57,6 +57,14 @@ class AttendanceFactory extends Factory
         return $this->state(fn (array $attributes) => ['status' => Attendance::STATUS_VOID]);
     }
 
+    /**
+     * Still without a clock-out and flagged for Admin review (PRD 7.4 rule 7).
+     */
+    public function flagged(): static
+    {
+        return $this->open()->state(fn (array $attributes) => ['status' => Attendance::STATUS_FLAGGED]);
+    }
+
     public function open(): static
     {
         return $this->state(fn (array $attributes) => [
