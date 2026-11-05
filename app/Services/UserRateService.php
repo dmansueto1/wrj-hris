@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -45,6 +46,21 @@ class UserRateService
             'effective_from' => now()->toDateString(),
             'changed_by' => $changedBy?->id,
         ]);
+    }
+
+    /**
+     * The hourly rate in effect on a date (T-12.1): the latest rate history row effective on or
+     * before it; the user's current rate when there is none.
+     */
+    public function rateOn(User $user, CarbonInterface $date): string
+    {
+        $rate = $user->rateHistories()
+            ->whereDate('effective_from', '<=', $date->toDateString())
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->value('hourly_rate');
+
+        return self::normalize((string) ($rate ?? $user->hourly_rate));
     }
 
     /**

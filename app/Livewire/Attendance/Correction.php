@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Attendance;
 
-use App\Concerns\PasswordValidationRules;
+use App\Livewire\Concerns\ConfirmsPassword;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
@@ -13,9 +13,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -32,7 +30,7 @@ use Livewire\Component;
  */
 class Correction extends Component
 {
-    use PasswordValidationRules;
+    use ConfirmsPassword;
 
     public const SET_CLOCK_OUT = 'set_clock_out';
 
@@ -53,9 +51,6 @@ class Correction extends Component
     ];
 
     private const INPUT_FORMAT = 'Y-m-d\TH:i';
-
-    /** Wrong passwords allowed per minute before saving is locked. */
-    private const PASSWORD_ATTEMPTS = 5;
 
     public ?int $attendanceId = null;
 
@@ -231,31 +226,6 @@ class Correction extends Component
         return view('livewire.attendance.correction', [
             'actions' => $this->availableActions(),
         ]);
-    }
-
-    /**
-     * The Admin's password must match (the same rule as Security settings). After five wrong
-     * passwords in a minute, saving is refused until the minute is over.
-     */
-    private function confirmPassword(): void
-    {
-        $key = 'attendance-correction:'.Auth::id();
-
-        if (RateLimiter::tooManyAttempts($key, self::PASSWORD_ATTEMPTS)) {
-            throw ValidationException::withMessages([
-                'password' => __('Too many wrong passwords. Try again in :seconds seconds.', ['seconds' => RateLimiter::availableIn($key)]),
-            ]);
-        }
-
-        try {
-            $this->validate(['password' => $this->currentPasswordRules()], [], ['password' => __('password')]);
-        } catch (ValidationException $e) {
-            RateLimiter::hit($key, 60);
-
-            throw $e;
-        }
-
-        RateLimiter::clear($key);
     }
 
     private function time(string $value): Carbon

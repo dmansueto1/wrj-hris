@@ -37,6 +37,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $adjusted_by
  * @property string|null $adjustment_reason
  * @property int|null $corrected_from_id
+ * @property int|null $attendance_import_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -155,6 +156,21 @@ class Attendance extends Model
     public function corrections(): HasMany
     {
         return $this->hasMany(Attendance::class, 'corrected_from_id')->withTrashed();
+    }
+
+    /**
+     * The uploaded file this attendance came from (T-12.1); null when it was clocked in and out.
+     *
+     * @return BelongsTo<AttendanceImport, $this>
+     */
+    public function import(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceImport::class, 'attendance_import_id');
+    }
+
+    public function isImported(): bool
+    {
+        return $this->attendance_import_id !== null;
     }
 
     /**

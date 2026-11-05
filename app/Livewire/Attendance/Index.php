@@ -20,9 +20,10 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * All Attendance (T-11, T-11.4), for Admin and Staff, in two tabs:
+ * All Attendance (T-11, T-11.4), for Admin and Staff, in tabs:
  * - Daily attendance: every employee on one date, sorted by last name, Present or Absent.
  * - By employee: one employee's attendance day by day over a date range, Absent days included.
+ * - Import Attendance (T-12.1, Admin only): the Attendance\Import component.
  *
  * @property-read LengthAwarePaginator<int, array{user: User, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $daily
  * @property-read array{employees: int, present: int, absent: int, labor_cost: string} $dailySummary
@@ -38,7 +39,7 @@ class Index extends Component
 {
     use WithPerPage;
 
-    public const TABS = ['daily', 'employee'];
+    public const TABS = ['daily', 'employee', 'import'];
 
     #[Url(as: 'tab', except: 'daily')]
     public string $tab = 'daily';
@@ -76,7 +77,7 @@ class Index extends Component
 
     public function mount(AttendanceHistoryService $history): void
     {
-        $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'daily';
+        $this->tab = $this->validTab($this->tab);
         $this->date = $history->date($this->date);
         $this->sortBy = $this->validSort($this->sortBy);
         [$this->from, $this->to] = $history->range($this->from, $this->to);
@@ -87,7 +88,7 @@ class Index extends Component
         $history = app(AttendanceHistoryService::class);
 
         match ($property) {
-            'tab' => $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'daily',
+            'tab' => $this->tab = $this->validTab($this->tab),
             'date' => $this->date = $history->date($this->date),
             'sortBy' => $this->sortBy = $this->validSort($this->sortBy),
             'from', 'to' => [$this->from, $this->to] = $history->range($this->from, $this->to),
@@ -216,6 +217,16 @@ class Index extends Component
             'today' => now()->toDateString(),
             'thisWeek' => app(AttendanceHistoryService::class)->currentWeek(),
         ]);
+    }
+
+    /**
+     * The tab if it exists and the user may see it (Import Attendance is Admin only), otherwise Daily attendance.
+     */
+    private function validTab(string $tab): string
+    {
+        $allowed = in_array($tab, self::TABS, true) && ($tab !== 'import' || Auth::user()?->can('attendance.correct'));
+
+        return $allowed ? $tab : 'daily';
     }
 
     private function validSort(string $sort): string

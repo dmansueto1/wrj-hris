@@ -1,6 +1,11 @@
 {{-- One attendance on a phone card: project, In → Out, worked time and photos (no peso amounts). --}}
 <div class="rounded-xl border-s-2 border-brand-gold bg-brand-page/60 px-3 py-2">
-    <p class="truncate text-sm font-semibold text-brand-navy">{{ $attendance->project->name }}</p>
+    <div class="flex items-center justify-between gap-2">
+        <p class="truncate text-sm font-semibold text-brand-navy">{{ $attendance->project->name }}</p>
+        @if ($attendance->isImported())
+            @include('livewire.attendance.partials.imported-badge')
+        @endif
+    </div>
     <div class="mt-0.5 flex items-center justify-between gap-2 text-sm">
         <span class="tabular-nums text-zinc-700">
             {{ $attendance->clock_in_at->format('g:i A') }} &rarr;

@@ -6,7 +6,9 @@ use App\Models\User;
 use App\Models\UserRateHistory;
 use App\Services\UserRateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class UserRateServiceTest extends TestCase
@@ -61,5 +63,30 @@ class UserRateServiceTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         app(UserRateService::class)->changeRate($worker, '-5', $admin);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function ratesOnDates(): array
+    {
+        return [
+            'before the change' => ['2026-10-19', '80.00'],
+            'on the change date' => ['2026-10-20', '95.00'],
+            'before any history' => ['2026-09-30', '100.00'],
+        ];
+    }
+
+    #[DataProvider('ratesOnDates')]
+    public function testRateOnUsesTheRateEffectiveOnThatDate(string $date, string $expected): void
+    {
+        $this->travelTo('2026-10-21 18:00:00');
+        $worker = User::factory()->create();
+        $worker->rateHistories()->delete();
+        $worker->forceFill(['hourly_rate' => '100.00'])->save();
+        $worker->rateHistories()->create(['hourly_rate' => '80.00', 'effective_from' => '2026-10-01']);
+        $worker->rateHistories()->create(['hourly_rate' => '95.00', 'effective_from' => '2026-10-20']);
+
+        $this->assertSame($expected, app(UserRateService::class)->rateOn($worker, Carbon::parse($date)));
     }
 }

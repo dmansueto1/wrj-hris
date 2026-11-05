@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\Costing\LaborCost;
 use App\Support\Costing\ShiftMinutes;
 use App\Support\Money;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -45,21 +46,6 @@ class AttendanceService
 
             $clockIn = now()->startOfMinute();
 
-            // The shift is saved on the attendance like the hourly rate, so a later shift change
-            // never alters it (T-11.3). null = Flexible, [] = rest day. A night shift that started
-            // the day before and is still running (e.g. clock in at 00:10 on a 22:00–06:00 shift)
-            // counts too.
-            $windows = $this->shifts->windowsFor($lockedUser, $clockIn);
-
-            if ($windows !== null) {
-                $startOfDay = $clockIn->copy()->startOfDay();
-                $overnight = array_values(array_filter(
-                    $this->shifts->windowsFor($lockedUser, $clockIn->copy()->subDay()) ?? [],
-                    fn (array $window) => $window[1]->gt($startOfDay),
-                ));
-                $windows = [...$overnight, ...$windows];
-            }
-
             $session = new Attendance;
             $session->forceFill([
                 'user_id' => $lockedUser->id,
@@ -67,10 +53,7 @@ class AttendanceService
                 'work_date' => $clockIn->toDateString(),
                 'clock_in_at' => $clockIn,
                 'hourly_rate' => $lockedUser->hourly_rate,
-                'shift_windows' => $windows === null ? null : array_map(fn (array $window) => [
-                    'start' => $window[0]->format('Y-m-d H:i'),
-                    'end' => $window[1]->format('Y-m-d H:i'),
-                ], $windows),
+                'shift_windows' => $this->shiftWindowsAt($lockedUser, $clockIn),
                 'status' => Attendance::STATUS_OPEN,
                 'clock_in_lat' => $lat,
                 'clock_in_lng' => $lng,
@@ -79,6 +62,34 @@ class AttendanceService
 
             return $session;
         });
+    }
+
+    /**
+     * The shift windows to save on an attendance that starts at $clockIn, as [{start, end}] with
+     * "Y-m-d H:i" times. The shift is saved like the hourly rate, so a later shift change never
+     * alters it (T-11.3). null = Flexible, [] = rest day. A night shift that started the day
+     * before and is still running (e.g. clock in at 00:10 on a 22:00–06:00 shift) counts too.
+     *
+     * @return list<array{start: string, end: string}>|null
+     */
+    public function shiftWindowsAt(User $user, CarbonInterface $clockIn): ?array
+    {
+        $windows = $this->shifts->windowsFor($user, $clockIn);
+
+        if ($windows === null) {
+            return null;
+        }
+
+        $startOfDay = $clockIn->copy()->startOfDay();
+        $overnight = array_values(array_filter(
+            $this->shifts->windowsFor($user, $clockIn->copy()->subDay()) ?? [],
+            fn (array $window) => $window[1]->gt($startOfDay),
+        ));
+
+        return array_map(fn (array $window) => [
+            'start' => $window[0]->format('Y-m-d H:i'),
+            'end' => $window[1]->format('Y-m-d H:i'),
+        ], [...$overnight, ...$windows]);
     }
 
     /**
