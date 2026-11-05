@@ -275,6 +275,26 @@ class KioskTest extends TestCase
         $this->assertSame(Attendance::STATUS_CLOSED, Attendance::sole()->status);
     }
 
+    public function testTheKioskShowsTheSignedInWorkersShiftToday(): void
+    {
+        Project::factory()->ongoing()->create();
+        $shiftWorker = User::factory()->worker()->twoShifts()->create();
+        $flexibleWorker = User::factory()->worker()->create();
+
+        $this->travelTo('2026-10-19 07:00:00'); // Monday
+        $this->verify($shiftWorker->username)
+            ->assertSeeHtml('data-test="shift-today"')
+            ->assertSee('Your shift today: 8:00 AM–12:00 PM, 1:00 PM–5:00 PM');
+
+        $this->travelTo('2026-10-25 07:00:00'); // Sunday, the rest day
+        $this->verify($shiftWorker->username)->assertSee('Your shift today: Rest day');
+
+        $this->verify($flexibleWorker->username)->assertDontSee('Your shift today');
+
+        // Nobody signed in yet: no shift line.
+        Livewire::test(Kiosk::class)->assertDontSeeHtml('data-test="shift-today"');
+    }
+
     private function verify(string $username, string $password = 'password'): Testable
     {
         return Livewire::test(Kiosk::class)

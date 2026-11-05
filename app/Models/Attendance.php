@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ShiftWindows;
 use Database\Factories\AttendanceFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,7 +20,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon $clock_in_at
  * @property Carbon|null $clock_out_at
  * @property string $hourly_rate
+ * @property array<int, array{start: string, end: string}>|null $shift_windows
  * @property int|null $minutes_worked
+ * @property int|null $clocked_minutes
  * @property string|null $hours_worked
  * @property string|null $labor_cost
  * @property string $status
@@ -91,7 +94,9 @@ class Attendance extends Model
             'clock_in_at' => 'datetime',
             'clock_out_at' => 'datetime',
             'hourly_rate' => 'decimal:2',
+            'shift_windows' => 'array',
             'minutes_worked' => 'integer',
+            'clocked_minutes' => 'integer',
             'hours_worked' => 'decimal:2',
             'labor_cost' => 'decimal:2',
             'clock_in_lat' => 'decimal:7',
@@ -165,6 +170,45 @@ class Attendance extends Model
         }
 
         return sprintf('%dh %02dm %02ds', intdiv($seconds, 3600), intdiv($seconds % 3600, 60), $seconds % 60);
+    }
+
+    /**
+     * Clocked, but none of it inside the shift (e.g. on a rest day): 0 hours counted (T-11.3).
+     */
+    public function isOutsideShift(): bool
+    {
+        return (int) $this->clocked_minutes > 0 && (int) $this->minutes_worked === 0;
+    }
+
+    /**
+     * Minutes clocked outside the shift, which do not count (T-11.3). 0 for Flexible or while
+     * Clocked In.
+     */
+    public function uncountedMinutes(): int
+    {
+        if ($this->clocked_minutes === null || $this->minutes_worked === null) {
+            return 0;
+        }
+
+        return max(0, $this->clocked_minutes - $this->minutes_worked);
+    }
+
+    /**
+     * The real clocked time, "4h 34m".
+     */
+    public function clockedTimeLabel(): string
+    {
+        $minutes = (int) $this->clocked_minutes;
+
+        return sprintf('%dh %02dm', intdiv($minutes, 60), $minutes % 60);
+    }
+
+    /**
+     * The shift saved at clock-in, "8:00 AM–12:00 PM, 1:00 PM–5:00 PM"; "Rest day" when there was none.
+     */
+    public function shiftLabel(): string
+    {
+        return $this->shift_windows ? ShiftWindows::label($this->shift_windows) : __('Rest day');
     }
 
     /**

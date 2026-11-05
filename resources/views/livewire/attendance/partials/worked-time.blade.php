@@ -1,6 +1,8 @@
 {{--
     Worked time: a live "2h 05m 09s" counter while Clocked In (from the clock-in time), otherwise the
     saved hours with the unit, e.g. "4.50 h". A dash when there are no hours (flagged, not clocked out).
+    T-11.3: the hours count only the time inside the shift; when time was cut, the real clocked time
+    shows under it, and "Outside shift" when nothing counted.
 --}}
 @if (($running = $attendance->runningTimeLabel()) !== null)
     <span
@@ -16,7 +18,20 @@
         <span x-text="elapsed">{{ $running }}</span>
     </span>
 @elseif ($attendance->hours_worked !== null)
-    <span class="whitespace-nowrap" data-test="worked-hours">{{ $attendance->hours_worked }} h</span>
+    <span class="inline-flex flex-col items-end gap-0.5 whitespace-nowrap">
+        <span data-test="worked-hours">{{ $attendance->hours_worked }} h</span>
+        @if ($attendance->uncountedMinutes() > 0)
+            <span
+                class="text-xs text-zinc-500"
+                title="{{ __('Only time inside the shift (:shift) counts.', ['shift' => $attendance->shiftLabel()]) }}"
+                data-test="clocked-time"
+            >{{ __('Clocked :time', ['time' => $attendance->clockedTimeLabel()]) }}</span>
+            <span class="sr-only">{{ __('Only time inside the shift (:shift) counts.', ['shift' => $attendance->shiftLabel()]) }}</span>
+        @endif
+        @if ($attendance->isOutsideShift())
+            <x-status-badge color="red" data-test="outside-shift">{{ __('Outside shift') }}</x-status-badge>
+        @endif
+    </span>
 @else
     <span class="text-zinc-400">&mdash;</span>
 @endif

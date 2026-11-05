@@ -10,6 +10,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\Costing\LaborCost;
+use App\Support\Costing\ShiftMinutes;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  */
 class AttendanceService
 {
+    public function __construct(private UserShiftService $shifts) {}
+
     public function clockIn(User $user, Project $project, ?float $lat = null, ?float $lng = null, ?string $photoPath = null): Attendance
     {
         return DB::transaction(function () use ($user, $project, $lat, $lng, $photoPath) {
@@ -42,6 +45,21 @@ class AttendanceService
 
             $clockIn = now()->startOfMinute();
 
+            // The shift is saved on the attendance like the hourly rate, so a later shift change
+            // never alters it (T-11.3). null = Flexible, [] = rest day. A night shift that started
+            // the day before and is still running (e.g. clock in at 00:10 on a 22:00–06:00 shift)
+            // counts too.
+            $windows = $this->shifts->windowsFor($lockedUser, $clockIn);
+
+            if ($windows !== null) {
+                $startOfDay = $clockIn->copy()->startOfDay();
+                $overnight = array_values(array_filter(
+                    $this->shifts->windowsFor($lockedUser, $clockIn->copy()->subDay()) ?? [],
+                    fn (array $window) => $window[1]->gt($startOfDay),
+                ));
+                $windows = [...$overnight, ...$windows];
+            }
+
             $session = new Attendance;
             $session->forceFill([
                 'user_id' => $lockedUser->id,
@@ -49,6 +67,10 @@ class AttendanceService
                 'work_date' => $clockIn->toDateString(),
                 'clock_in_at' => $clockIn,
                 'hourly_rate' => $lockedUser->hourly_rate,
+                'shift_windows' => $windows === null ? null : array_map(fn (array $window) => [
+                    'start' => $window[0]->format('Y-m-d H:i'),
+                    'end' => $window[1]->format('Y-m-d H:i'),
+                ], $windows),
                 'status' => Attendance::STATUS_OPEN,
                 'clock_in_lat' => $lat,
                 'clock_in_lng' => $lng,
@@ -103,11 +125,15 @@ class AttendanceService
             }
 
             $clockOut = now()->startOfMinute();
-            $minutes = (int) $session->clock_in_at->diffInMinutes($clockOut);
+            $clocked = (int) $session->clock_in_at->diffInMinutes($clockOut);
+            // Only the minutes inside the shift saved at clock-in count (T-11.3); every minute when
+            // Flexible or when the attendance started before shifts existed.
+            $minutes = ShiftMinutes::counted($session->clock_in_at, $clockOut, $session->shift_windows);
             $labor = LaborCost::forMinutes($minutes, $session->hourly_rate);
 
             $session->forceFill([
                 'clock_out_at' => $clockOut,
+                'clocked_minutes' => $clocked,
                 'minutes_worked' => $minutes,
                 'hours_worked' => $labor['hours'],
                 'labor_cost' => $labor['cost'],

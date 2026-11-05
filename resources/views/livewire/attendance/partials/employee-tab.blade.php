@@ -55,58 +55,47 @@
         />
     </x-data-card>
 @else
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-3">
         <x-stat-card icon="check-circle" color="green" :label="__('Present days')" :value="number_format($this->employeeSummary['present_days'])" :note="__('Days with attendance')" />
         <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent days')" :value="number_format($this->employeeSummary['absent_days'])" :note="__('Days without attendance')" />
         <x-stat-card icon="clock" color="blue" :label="__('Total hours')" :value="$this->employeeSummary['hours'].' h'" :note="__('In this date range')" />
-        <x-stat-card icon="banknotes" color="amber" :label="__('Labor cost')" :value="\App\Support\Money::format($this->employeeSummary['labor_cost'])" :note="__('In this date range')" />
     </div>
 
     <x-data-card>
-        {{-- Desktop / tablet: one row per attendance, an Absent row for days without --}}
+        {{-- Desktop / tablet: one row per day; the attendance under Morning and Afternoon --}}
         <div class="hidden max-h-[70vh] overflow-auto px-4 sm:px-6 md:block">
             <flux:table>
                 <flux:table.columns sticky class="bg-white">
                     <flux:table.column>{{ __('Date') }}</flux:table.column>
-                    <flux:table.column>{{ __('Project') }}</flux:table.column>
-                    <flux:table.column>{{ __('In') }}</flux:table.column>
-                    <flux:table.column>{{ __('Out') }}</flux:table.column>
+                    <flux:table.column>{{ __('Morning In') }}</flux:table.column>
+                    <flux:table.column>{{ __('Morning Out') }}</flux:table.column>
+                    <flux:table.column>{{ __('Afternoon In') }}</flux:table.column>
+                    <flux:table.column>{{ __('Afternoon Out') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('Worked time') }}</flux:table.column>
-                    <flux:table.column align="end">{{ __('Rate') }}</flux:table.column>
-                    <flux:table.column align="end">{{ __('Labor cost') }}</flux:table.column>
                     <flux:table.column>{{ __('Photos') }}</flux:table.column>
+                    <flux:table.column class="w-32">{{ __('Remarks') }}</flux:table.column>
                     <flux:table.column>{{ __('Status') }}</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
                     @foreach ($this->employeeDays as $day)
-                        @php($records = $day['attendances']->isEmpty() ? [null] : $day['attendances']->all())
-                        @foreach ($records as $attendance)
-                            <flux:table.row
-                                :key="'day-'.$day['date']->toDateString().'-'.($attendance?->id ?? 'absent')"
-                                :data-test="$loop->first ? 'day-row-'.$day['date']->toDateString() : null"
-                            >
-                                <flux:table.cell class="whitespace-nowrap">
-                                    @if ($loop->first)
-                                        <span class="font-semibold text-brand-navy">{{ $day['date']->format('D, M j') }}</span>
-                                    @endif
-                                </flux:table.cell>
-                                @include('livewire.attendance.partials.attendance-cells', ['attendance' => $attendance])
-                                <flux:table.cell>
-                                    @if ($loop->first)
-                                        @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
-                                    @endif
-                                </flux:table.cell>
-                            </flux:table.row>
-                        @endforeach
+                        <flux:table.row :key="'day-'.$day['date']->toDateString()" :data-test="'day-row-'.$day['date']->toDateString()">
+                            <flux:table.cell class="whitespace-nowrap">
+                                <span class="font-semibold text-brand-navy">{{ $day['date']->format('D, M j') }}</span>
+                            </flux:table.cell>
+                            @php($attendanceDay = \App\Support\AttendanceDay::of($day['attendances']))
+                            @include('livewire.attendance.partials.day-cells', ['day' => $attendanceDay, 'photos' => true])
+                            <flux:table.cell class="w-32">@include('livewire.attendance.partials.day-remarks', ['day' => $attendanceDay])</flux:table.cell>
+                            <flux:table.cell>
+                                @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
+                            </flux:table.cell>
+                        </flux:table.row>
                     @endforeach
 
                     <flux:table.row class="bg-brand-tint/50">
-                        <flux:table.cell colspan="4" class="font-semibold text-brand-navy">{{ __('Total') }}</flux:table.cell>
+                        <flux:table.cell colspan="5" class="font-semibold text-brand-navy">{{ __('Total') }}</flux:table.cell>
                         <flux:table.cell align="end" class="whitespace-nowrap font-bold tabular-nums text-brand-navy"><span data-test="employee-total-hours">{{ $this->employeeSummary['hours'] }} h</span></flux:table.cell>
-                        <flux:table.cell></flux:table.cell>
-                        <flux:table.cell align="end" class="whitespace-nowrap font-bold tabular-nums text-brand-navy"><span data-test="employee-total-labor-cost">{{ \App\Support\Money::format($this->employeeSummary['labor_cost']) }}</span></flux:table.cell>
-                        <flux:table.cell colspan="2"></flux:table.cell>
+                        <flux:table.cell colspan="3"></flux:table.cell>
                     </flux:table.row>
                 </flux:table.rows>
             </flux:table>
@@ -127,10 +116,7 @@
             @endforeach
             <li class="flex items-center justify-between gap-3 bg-brand-tint/50 p-4 text-sm">
                 <span class="font-semibold text-brand-navy">{{ __('Total') }}</span>
-                <span class="text-end tabular-nums">
-                    <span class="block text-zinc-600">{{ $this->employeeSummary['hours'] }} h</span>
-                    <span class="block font-bold text-brand-navy">{{ \App\Support\Money::format($this->employeeSummary['labor_cost']) }}</span>
-                </span>
+                <span class="font-bold tabular-nums text-brand-navy">{{ $this->employeeSummary['hours'] }} h</span>
             </li>
         </ul>
 

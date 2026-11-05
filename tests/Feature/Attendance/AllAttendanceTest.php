@@ -6,6 +6,7 @@ use App\Livewire\Attendance\Index;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\AttendanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -86,8 +87,9 @@ class AllAttendanceTest extends TestCase
             ->assertSee('7:00 AM')
             ->assertSee('11:30 AM')
             ->assertSeeHtml('data-test="worked-hours">4.50 h')
-            ->assertSee('₱ 80.00')
-            ->assertSee('₱ 360.00')
+            // No peso amounts on the attendance tables.
+            ->assertDontSee('₱')
+            ->assertDontSee('Labor cost')
             ->assertSeeHtml('data-test="presence-present"')
             ->assertSeeHtml('data-test="presence-absent"');
 
@@ -101,7 +103,54 @@ class AllAttendanceTest extends TestCase
             ['employees' => 4, 'present' => 1, 'absent' => 3, 'labor_cost' => '360.00'],
             $component->instance()->dailySummary,
         );
-        $component->assertSeeHtml('data-test="total-labor-cost">₱ 360.00');
+    }
+
+    public function testEachEmployeeIsOneRowWithMorningAndAfternoonColumns(): void
+    {
+        $this->signInAdmin();
+        $twoShifts = User::factory()->worker()->twoShifts()->create(['first_name' => 'Ana', 'last_name' => 'Abad']);
+        $oneShift = User::factory()->worker()->oneShift()->create(['first_name' => 'Ben', 'last_name' => 'Bautista']);
+        $service = app(AttendanceService::class);
+        $project = Project::factory()->ongoing()->create(['name' => 'Riverside Townhomes']);
+
+        // Ana: a morning and an afternoon; Ben: one whole-day attendance.
+        foreach ([['07:50', '12:24'], ['12:58', '17:03']] as [$in, $out]) {
+            $this->travelTo("2026-10-21 {$in}:00");
+            $service->clockIn($twoShifts, $project);
+            $this->travelTo("2026-10-21 {$out}:00");
+            $service->clockOut($twoShifts);
+        }
+        $this->travelTo('2026-10-21 08:02:00');
+        $service->clockIn($oneShift, $project);
+        $this->travelTo('2026-10-21 15:00:00');
+        $service->clockOut($oneShift);
+
+        $html = Livewire::test(Index::class)
+            ->assertSeeInOrder(['Name', 'Morning In', 'Morning Out', 'Afternoon In', 'Afternoon Out', 'Worked time', 'Photos', 'Remarks', 'Status'])
+            ->assertDontSee('Rate')
+            ->assertDontSee('Labor cost')
+            ->html();
+
+        // Ana's row: one time per column, 8.00 h counted, the project on hover.
+        $ana = substr($html, strpos($html, 'data-test="employee-row-'.$twoShifts->id.'"'));
+        $ana = substr($ana, 0, strpos($ana, '</tr>'));
+        $this->assertMatchesRegularExpression('/data-test="morning-in"[\s\S]*7:50 AM[\s\S]*data-test="morning-out"[\s\S]*12:24 PM[\s\S]*data-test="afternoon-in"[\s\S]*12:58 PM[\s\S]*data-test="afternoon-out"[\s\S]*5:03 PM/', $ana);
+        $this->assertStringContainsString('data-test="worked-hours">8.00 h', $ana);
+        $this->assertStringContainsString('title="Riverside Townhomes"', $ana);
+
+        // Ben's one-shift day: Morning In and Afternoon Out, dashes in between.
+        $ben = substr($html, strpos($html, 'data-test="employee-row-'.$oneShift->id.'"'));
+        $ben = substr($ben, 0, strpos($ben, '</tr>'));
+        $cell = function (string $column) use ($ben): string {
+            preg_match('/data-test="'.$column.'"[\s\S]*?<\/td>/', $ben, $match);
+
+            return $match[0] ?? '';
+        };
+        $this->assertStringContainsString('8:02 AM', $cell('morning-in'));
+        $this->assertStringContainsString('&mdash;', $cell('morning-out'));
+        $this->assertStringContainsString('&mdash;', $cell('afternoon-in'));
+        $this->assertStringContainsString('3:00 PM', $cell('afternoon-out'));
+        $this->assertStringContainsString('data-test="remarks"', $ben);
     }
 
     public function testMorningAndAfternoonShowTwoRowsButCountAsOnePresentEmployee(): void
@@ -338,7 +387,7 @@ class AllAttendanceTest extends TestCase
             $component->instance()->employeeSummary,
         );
         $component->assertSeeHtml('data-test="employee-total-hours">9.00 h')
-            ->assertSeeHtml('data-test="employee-total-labor-cost">₱ 720.00');
+            ->assertDontSee('₱');
     }
 
     public function testFutureDaysShowADashInsteadOfAbsent(): void
@@ -498,6 +547,11 @@ class AllAttendanceTest extends TestCase
             ->assertDontSeeHtml(e(route('attendance.photo', [$open, 'out'])))
             ->assertSeeHtml('data-test="running-time"')
             ->assertSee('2h 05m 09s')
+            // No clock-out yet: the end time reads "now", in green like the running time.
+            ->assertSeeHtml('data-test="clock-out-now"')
+            ->assertSeeHtml('text-success')
+            ->assertSee('12:54 PM')
+            ->assertSee('now')
             ->assertSeeHtml('data-test="presence-present"');
     }
 

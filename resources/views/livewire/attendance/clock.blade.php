@@ -108,6 +108,8 @@
                         </flux:field>
                     @endif
 
+                    <x-shift-today :shift="$this->shiftToday" />
+
                     @if ($this->projects->isNotEmpty())
                         @if ($photoRequired)
                             <x-photo-step-note action="in" />
@@ -164,11 +166,7 @@
                                 <p class="text-sm tabular-nums text-zinc-600">
                                     {{ $session->clock_in_at->format('g:i A') }}
                                     &rarr;
-                                    @if ($session->clock_out_at)
-                                        @include('livewire.attendance.partials.clock-out-time', ['attendance' => $session])
-                                    @else
-                                        {{ __('now') }}
-                                    @endif
+                                    @include('livewire.attendance.partials.clock-out-time', ['attendance' => $session])
                                 </p>
                             </div>
                             <div class="flex shrink-0 flex-col items-end gap-1">

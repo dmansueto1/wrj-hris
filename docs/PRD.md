@@ -195,6 +195,16 @@ labor_cost   = hours_worked × hourly_rate_at_clock_in
 
 Project A is charged ₱360.00 and Project B ₱360.00; the lunch hour is not paid because no session was open.
 
+**Counting within the shift (T-11.3).** A user can have a shift (T-11.2): One shift a day, Two shifts a day, or Flexible. For a user with a shift, only the minutes of the session inside that day's shift windows count, using the shift saved at clock-in:
+
+```
+counted_minutes = Σ overlap(clock_in–clock_out, each shift window)
+hours_worked    = counted_minutes ÷ 60
+labor_cost      = hours_worked × hourly_rate_at_clock_in
+```
+
+Example: shift 8:00–12:00, clock in 7:50 AM, out 12:24 PM → 240 counted minutes = 4.00 h = ₱320.00 at ₱80/hr. Time outside the shift (and any session on a rest day) does not count. Flexible users keep the formula above, so every minute counts.
+
 ### 7.2 Material cost per entry
 
 ```
@@ -304,6 +314,8 @@ Labor cost is computed from exact minutes, so rounding the displayed hours never
 | Zero minutes | 0 | 80.00 | 0.00 | 0.00 |
 | Overnight 10:00 PM–6:00 AM | 480 | 95.50 | 8.00 | 764.00 |
 | Two sessions in one day | 270 + 270 | 80.00 | 9.00 total | 720.00 total |
+
+These cases are for Flexible users (no shift). For users with a shift, the counted minutes are tested in T-11.3 (for example 7:50–12:24 on an 8:00–12:00 shift → 240 minutes, 4.00 h, ₱320.00; a whole day 7:55–17:10 on 8:00–12:00 and 13:00–17:00 → 480 minutes, 8.00 h, ₱640.00; a rest day → ₱0.00).
 
 ### 10.3 Required unit tests: material cost
 

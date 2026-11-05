@@ -11,6 +11,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Services\AttendanceService;
 use App\Services\DeviceService;
+use App\Services\UserShiftService;
 use App\Support\AttendancePhotos;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
@@ -116,6 +117,15 @@ class Clock extends Component
 
             Flux::toast(variant: 'success', text: __('Clocked out. :hours hours recorded.', ['hours' => $session->hours_worked]));
         }, 'confirm-clock-out');
+    }
+
+    /**
+     * "8:00 AM–12:00 PM, 1:00 PM–5:00 PM", "Rest day", or null for a Flexible user (T-11.3).
+     */
+    #[Computed]
+    public function shiftToday(): ?string
+    {
+        return app(UserShiftService::class)->todayLabel($this->user());
     }
 
     #[Computed]

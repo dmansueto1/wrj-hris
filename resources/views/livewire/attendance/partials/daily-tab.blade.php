@@ -1,11 +1,10 @@
 {{-- Daily attendance tab (T-11.4): every employee on one date, Present or Absent; filter by employee or project, sort by name, project or worked time. --}}
 @php($isToday = $date === $today)
 
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+<div class="grid gap-4 sm:grid-cols-3">
     <x-stat-card icon="users" color="indigo" :label="__('Employees')" :value="number_format($this->dailySummary['employees'])" :note="\Illuminate\Support\Carbon::parse($date)->format('l, M j, Y')" />
     <x-stat-card icon="check-circle" color="green" :label="__('Present')" :value="number_format($this->dailySummary['present'])" :note="__('With attendance this day')" />
     <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent')" :value="number_format($this->dailySummary['absent'])" :note="__('No attendance this day')" />
-    <x-stat-card icon="banknotes" color="amber" :label="__('Labor cost')" :value="\App\Support\Money::format($this->dailySummary['labor_cost'])" :note="__('For this day')" />
 </div>
 
 {{-- Filters --}}
@@ -56,52 +55,38 @@
             <flux:button size="sm" wire:click="clearFilters">{{ __('Clear filters') }}</flux:button>
         </x-empty-state>
     @else
-        {{-- Desktop / tablet: one row per attendance, the name and status on each employee's first row --}}
+        {{-- Desktop / tablet: one row per employee; their attendance under Morning and Afternoon --}}
         <div class="hidden max-h-[70vh] overflow-auto px-4 sm:px-6 md:block">
             <flux:table>
                 <flux:table.columns sticky class="bg-white">
                     <flux:table.column>{{ __('Name') }}</flux:table.column>
-                    <flux:table.column>{{ __('Project') }}</flux:table.column>
-                    <flux:table.column>{{ __('In') }}</flux:table.column>
-                    <flux:table.column>{{ __('Out') }}</flux:table.column>
+                    <flux:table.column>{{ __('Morning In') }}</flux:table.column>
+                    <flux:table.column>{{ __('Morning Out') }}</flux:table.column>
+                    <flux:table.column>{{ __('Afternoon In') }}</flux:table.column>
+                    <flux:table.column>{{ __('Afternoon Out') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('Worked time') }}</flux:table.column>
-                    <flux:table.column align="end">{{ __('Rate') }}</flux:table.column>
-                    <flux:table.column align="end">{{ __('Labor cost') }}</flux:table.column>
                     <flux:table.column>{{ __('Photos') }}</flux:table.column>
+                    <flux:table.column class="w-32">{{ __('Remarks') }}</flux:table.column>
                     <flux:table.column>{{ __('Status') }}</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
                     @foreach ($this->daily as $row)
-                        @php($records = $row['attendances']->isEmpty() ? [null] : $row['attendances']->all())
-                        @foreach ($records as $attendance)
-                            <flux:table.row
-                                :key="'daily-'.$row['user']->id.'-'.($attendance?->id ?? 'absent')"
-                                :data-test="$loop->first ? 'employee-row-'.$row['user']->id : null"
-                            >
-                                <flux:table.cell>
-                                    @if ($loop->first)
-                                        <div class="flex items-center gap-2">
-                                            <x-avatar :name="$row['user']->name" :initials="$row['user']->initials()" size="sm" />
-                                            <span class="font-semibold text-brand-navy">{{ $row['user']->listName() }}</span>
-                                        </div>
-                                    @endif
-                                </flux:table.cell>
-                                @include('livewire.attendance.partials.attendance-cells', ['attendance' => $attendance])
-                                <flux:table.cell>
-                                    @if ($loop->first)
-                                        @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
-                                    @endif
-                                </flux:table.cell>
-                            </flux:table.row>
-                        @endforeach
+                        <flux:table.row :key="'daily-'.$row['user']->id" :data-test="'employee-row-'.$row['user']->id">
+                            <flux:table.cell>
+                                <div class="flex items-center gap-2">
+                                    <x-avatar :name="$row['user']->name" :initials="$row['user']->initials()" size="sm" />
+                                    <span class="font-semibold text-brand-navy">{{ $row['user']->listName() }}</span>
+                                </div>
+                            </flux:table.cell>
+                            @php($attendanceDay = \App\Support\AttendanceDay::of($row['attendances']))
+                            @include('livewire.attendance.partials.day-cells', ['day' => $attendanceDay, 'photos' => true])
+                            <flux:table.cell class="w-32">@include('livewire.attendance.partials.day-remarks', ['day' => $attendanceDay])</flux:table.cell>
+                            <flux:table.cell>
+                                @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
+                            </flux:table.cell>
+                        </flux:table.row>
                     @endforeach
-
-                    <flux:table.row class="bg-brand-tint/50">
-                        <flux:table.cell colspan="6" class="font-semibold text-brand-navy">{{ __('Total') }}</flux:table.cell>
-                        <flux:table.cell align="end" class="whitespace-nowrap font-bold tabular-nums text-brand-navy"><span data-test="total-labor-cost">{{ \App\Support\Money::format($this->dailySummary['labor_cost']) }}</span></flux:table.cell>
-                        <flux:table.cell colspan="2"></flux:table.cell>
-                    </flux:table.row>
                 </flux:table.rows>
             </flux:table>
         </div>
@@ -122,10 +107,6 @@
                     @endforeach
                 </li>
             @endforeach
-            <li class="flex items-center justify-between gap-3 bg-brand-tint/50 p-4 text-sm">
-                <span class="font-semibold text-brand-navy">{{ __('Total') }}</span>
-                <span class="font-bold tabular-nums text-brand-navy">{{ \App\Support\Money::format($this->dailySummary['labor_cost']) }}</span>
-            </li>
         </ul>
     @endif
 

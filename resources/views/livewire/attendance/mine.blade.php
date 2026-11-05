@@ -42,57 +42,40 @@
         @if ($this->days->isEmpty())
             <x-empty-state icon="calendar-days" :title="__('No days on this page.')" :description="__('Go back to the first page or pick other dates.')" />
         @else
-            {{-- Desktop / tablet: one row per attendance, an Absent row for days without; the total hours sit under Worked time --}}
+            {{-- Desktop / tablet: one row per day; the attendance under Morning and Afternoon; the total hours sit under Worked time --}}
             <div class="hidden max-h-[70vh] overflow-auto px-4 sm:px-6 md:block">
                 <flux:table>
                     <flux:table.columns sticky class="bg-white">
                         <flux:table.column>{{ __('Date') }}</flux:table.column>
-                        <flux:table.column>{{ __('Project') }}</flux:table.column>
-                        <flux:table.column>{{ __('In') }}</flux:table.column>
-                        <flux:table.column>{{ __('Out') }}</flux:table.column>
+                        <flux:table.column>{{ __('Morning In') }}</flux:table.column>
+                        <flux:table.column>{{ __('Morning Out') }}</flux:table.column>
+                        <flux:table.column>{{ __('Afternoon In') }}</flux:table.column>
+                        <flux:table.column>{{ __('Afternoon Out') }}</flux:table.column>
                         <flux:table.column align="end">{{ __('Worked time') }}</flux:table.column>
+                        <flux:table.column class="w-32">{{ __('Remarks') }}</flux:table.column>
                         <flux:table.column>{{ __('Status') }}</flux:table.column>
                     </flux:table.columns>
 
                     <flux:table.rows>
                         @foreach ($this->days as $day)
                             @php($date = $day['date']->toDateString())
-                            @php($records = $day['attendances']->isEmpty() ? [null] : $day['attendances']->all())
-                            @foreach ($records as $attendance)
-                                <flux:table.row :key="'row-'.$date.'-'.($attendance?->id ?? 'absent')">
-                                    <flux:table.cell class="whitespace-nowrap">
-                                        @if ($loop->first)
-                                            <span class="font-semibold text-brand-navy" data-test="day-{{ $date }}">{{ $day['date']->format('l, M j') }}</span>
-                                        @endif
-                                    </flux:table.cell>
-                                    @if ($attendance)
-                                        <flux:table.cell>
-                                            <span class="block max-w-64 truncate font-medium text-brand-navy">{{ $attendance->project->name }}</span>
-                                            <span class="font-mono text-xs text-zinc-500">{{ $attendance->project->code }}</span>
-                                        </flux:table.cell>
-                                        <flux:table.cell class="whitespace-nowrap tabular-nums">{{ $attendance->clock_in_at->format('g:i A') }}</flux:table.cell>
-                                        <flux:table.cell class="whitespace-nowrap tabular-nums">
-                                            @include('livewire.attendance.partials.clock-out-time', ['attendance' => $attendance])
-                                        </flux:table.cell>
-                                        <flux:table.cell align="end" class="tabular-nums">@include('livewire.attendance.partials.worked-time', ['attendance' => $attendance])</flux:table.cell>
-                                    @else
-                                        @foreach (range(1, 4) as $i)
-                                            <flux:table.cell class="text-zinc-400">&mdash;</flux:table.cell>
-                                        @endforeach
-                                    @endif
-                                    <flux:table.cell>
-                                        @if ($loop->first)
-                                            @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
-                                        @endif
-                                    </flux:table.cell>
-                                </flux:table.row>
-                            @endforeach
+                            <flux:table.row :key="'row-'.$date">
+                                <flux:table.cell class="whitespace-nowrap">
+                                    <span class="font-semibold text-brand-navy" data-test="day-{{ $date }}">{{ $day['date']->format('l, M j') }}</span>
+                                </flux:table.cell>
+                                @php($attendanceDay = \App\Support\AttendanceDay::of($day['attendances']))
+                                @include('livewire.attendance.partials.day-cells', ['day' => $attendanceDay, 'photos' => false])
+                                <flux:table.cell class="w-32">@include('livewire.attendance.partials.day-remarks', ['day' => $attendanceDay])</flux:table.cell>
+                                <flux:table.cell>
+                                    @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
+                                </flux:table.cell>
+                            </flux:table.row>
                         @endforeach
 
                         <flux:table.row class="bg-brand-tint/50">
-                            <flux:table.cell colspan="4" class="font-semibold text-brand-navy">{{ __('Total') }}</flux:table.cell>
+                            <flux:table.cell colspan="5" class="font-semibold text-brand-navy">{{ __('Total') }}</flux:table.cell>
                             <flux:table.cell align="end" class="whitespace-nowrap font-bold tabular-nums text-brand-navy"><span data-test="range-total">{{ $this->totals['hours'] }}</span> h</flux:table.cell>
-                            <flux:table.cell></flux:table.cell>
+                            <flux:table.cell colspan="2"></flux:table.cell>
                         </flux:table.row>
                     </flux:table.rows>
                 </flux:table>

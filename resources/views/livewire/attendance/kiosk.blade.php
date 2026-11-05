@@ -162,6 +162,8 @@
                             <flux:error name="projectId" />
                         </flux:field>
 
+                        <x-shift-today :shift="$this->shiftToday" />
+
                         @if ($photoRequired)
                             <x-photo-step-note action="in" />
                         @endif

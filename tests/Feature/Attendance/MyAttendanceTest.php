@@ -239,7 +239,8 @@ class MyAttendanceTest extends TestCase
 
         Livewire::test(Mine::class)
             ->assertSeeHtml('data-flux-table')
-            ->assertSeeInOrder(['Date', 'Project', 'In', 'Out', 'Worked time', 'Status'])
+            ->assertSeeInOrder(['Date', 'Morning In', 'Morning Out', 'Afternoon In', 'Afternoon Out', 'Worked time', 'Remarks', 'Status'])
+            ->assertSeeHtml('data-test="morning-in"')
             ->assertSeeHtml('data-test="worked-hours">4.50 h')
             ->assertSeeHtml('data-test="presence-present"')
             ->assertDontSee('Day total')

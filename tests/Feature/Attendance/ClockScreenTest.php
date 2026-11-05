@@ -325,6 +325,16 @@ class ClockScreenTest extends TestCase
             ->assertSeeHtml('data-test="today-total">4.50</span>');
     }
 
+    public function testTheTodayPanelShowsNowInGreenUntilClockOut(): void
+    {
+        $worker = User::factory()->worker()->create();
+        $this->actingAs($worker);
+        $this->travelTo('2026-03-02 07:00:00');
+        app(AttendanceService::class)->clockIn($worker, Project::factory()->ongoing()->create());
+
+        Livewire::test(Clock::class)->assertSeeHtml('data-test="clock-out-now"');
+    }
+
     public function testTheTodayPanelShowsOnlyTheStatusForTheAttendanceStillClockedIn(): void
     {
         $worker = User::factory()->worker()->create();

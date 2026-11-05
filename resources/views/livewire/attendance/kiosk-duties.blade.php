@@ -3,9 +3,9 @@
     <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4 sm:px-6">
         <div>
             <h2 id="kiosk-duties-heading" class="flex items-center gap-2 text-base font-bold text-brand-navy">
-                <span class="relative flex size-2.5" aria-hidden="true">
-                    <span class="absolute inline-flex size-full rounded-full bg-danger opacity-60 motion-safe:animate-ping"></span>
-                    <span class="relative inline-flex size-2.5 rounded-full bg-danger"></span>
+                <span class="relative flex size-3.5" aria-hidden="true">
+                    <span class="absolute inline-flex size-full rounded-full bg-success opacity-80 motion-safe:animate-ping"></span>
+                    <span class="relative inline-flex size-3.5 rounded-full bg-success"></span>
                 </span>
                 {{ __("Today's attendance") }}
             </h2>
@@ -14,7 +14,7 @@
 
         <span class="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-3 py-1 text-xs font-semibold text-success" data-test="kiosk-on-duty-count">
             <flux:icon icon="users" class="size-4" />
-            {{ trans_choice(':count clocked in now|:count clocked in now', $this->onDutyCount, ['count' => $this->onDutyCount]) }}
+            {{ trans_choice(':count present now|:count present now', $this->onDutyCount, ['count' => $this->onDutyCount]) }}
         </span>
     </div>
 

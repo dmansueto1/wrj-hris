@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\AttendanceService;
 use App\Services\DeviceService;
 use App\Services\KioskService;
+use App\Services\UserShiftService;
 use App\Support\AttendancePhotos;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
@@ -161,6 +162,15 @@ class Kiosk extends Component
     public function user(): ?User
     {
         return $this->verifiedUserId ? User::query()->find($this->verifiedUserId) : null;
+    }
+
+    /**
+     * The signed-in worker's shift today, or null when nobody is signed in or they are Flexible.
+     */
+    #[Computed]
+    public function shiftToday(): ?string
+    {
+        return $this->user ? app(UserShiftService::class)->todayLabel($this->user) : null;
     }
 
     #[Computed]

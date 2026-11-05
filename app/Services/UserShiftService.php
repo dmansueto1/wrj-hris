@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\UserShift;
+use App\Support\ShiftWindows;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -154,6 +155,21 @@ class UserShiftService
         };
 
         return $workingText.' · '.$restText;
+    }
+
+    /**
+     * Today's shift as shown on Clock In/Out and the kiosk: "8:00 AM–12:00 PM, 1:00 PM–5:00 PM",
+     * "Rest day", or null for a Flexible user (T-11.3).
+     */
+    public function todayLabel(User $user): ?string
+    {
+        $windows = $this->windowsFor($user, now());
+
+        if ($windows === null) {
+            return null;
+        }
+
+        return $windows === [] ? __('Rest day') : ShiftWindows::label($windows);
     }
 
     /**
