@@ -68,6 +68,16 @@
 
                 <flux:textarea wire:model="reason" :label="__('Reason')" :placeholder="__('Why is this attendance being corrected?')" rows="2" :description="__('At least :min characters.', ['min' => \App\Services\AttendanceCorrectionService::MIN_REASON_LENGTH])" />
 
+                <flux:input
+                    type="password"
+                    wire:model="password"
+                    :label="__('Your password')"
+                    :description="__('Attendance becomes labor cost, so every correction is confirmed with your password.')"
+                    autocomplete="current-password"
+                    viewable
+                    data-test="correction-password"
+                />
+
                 <div class="flex justify-end gap-2">
                     <flux:modal.close>
                         <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>

@@ -16,7 +16,7 @@
 - Every change: recompute minutes, hours and labor cost with `LaborCost` using the session's saved `hourly_rate`, counting only the minutes inside the attendance's saved `shift_windows` with `ShiftMinutes::counted()` (T-11.3; Flexible counts every minute); set `status = adjusted` (or `void`), `adjusted_by` and `adjustment_reason`.
 - A correction never edits the attendance: it archives the original (soft delete, values unchanged) and saves the corrected record(s) as new rows with `corrected_from_id` pointing to it (split creates two, void creates a void copy). Only the current records count. Admin can open "Compare with original" from the row menu to see the original next to the corrected version(s), with who corrected it, when and why.
 - Validation: reason required (at least 10 characters); clock-out after clock-in; no time in the future; no overlap with the same user's other non-void sessions.
-- UI: a "Correct" button on each `/attendance` row (permission `attendance.correct`, behind `password.confirm`) opening a modal with the five actions.
+- UI: a "Correct" button on each `/attendance` row (permission `attendance.correct`) opening a modal with the five actions. Every save asks for the Admin's own password in the modal (`current_password` rule, as on Security settings), even right after another confirmation; five wrong passwords in a minute lock saving for that minute. (Not the `password.confirm` route middleware: Staff also use `/attendance`, and a 3-hour confirmation would let later corrections go through without a password.)
 
 **Acceptance criteria**
 

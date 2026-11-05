@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Attendance;
 
+use App\Concerns\PasswordValidationRules;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
@@ -12,7 +13,9 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -20,8 +23,8 @@ use Livewire\Component;
 /**
  * The "Correct attendance" and "Compare with original" modals on All Attendance (T-12), Admin
  * only. One of each for every row: the row's "Correct" menu dispatches correct-attendance or
- * compare-attendance with the attendance id. Corrections need a recent password confirmation,
- * like the Users pages.
+ * compare-attendance with the attendance id. Every save asks for the Admin's password, since
+ * attendance becomes labor cost; five wrong passwords lock saving for a minute.
  *
  * @property-read Attendance|null $attendance
  * @property-read Collection<int, Project> $projects
@@ -29,6 +32,8 @@ use Livewire\Component;
  */
 class Correction extends Component
 {
+    use PasswordValidationRules;
+
     public const SET_CLOCK_OUT = 'set_clock_out';
 
     public const CHANGE_TIMES = 'change_times';
@@ -49,6 +54,9 @@ class Correction extends Component
 
     private const INPUT_FORMAT = 'Y-m-d\TH:i';
 
+    /** Wrong passwords allowed per minute before saving is locked. */
+    private const PASSWORD_ATTEMPTS = 5;
+
     public ?int $attendanceId = null;
 
     public string $action = self::CHANGE_TIMES;
@@ -62,6 +70,9 @@ class Correction extends Component
     public string $project_id = '';
 
     public string $reason = '';
+
+    /** The Admin's own password, asked on every save and never kept after it. */
+    public string $password = '';
 
     /** The corrected record shown in the comparison modal. */
     public ?int $compareId = null;
@@ -77,11 +88,15 @@ class Correction extends Component
     #[On('correct-attendance')]
     public function open(int $id): void
     {
-        if (! $this->passwordConfirmed()) {
+        $attendance = Attendance::query()->where('status', '!=', Attendance::STATUS_VOID)->find($id);
+
+        // Archived or voided since the page loaded, e.g. another Admin corrected it first.
+        if ($attendance === null) {
+            Flux::toast(variant: 'danger', text: __('This attendance was already corrected. Correct the current record instead.'));
+            $this->dispatch('attendance-corrected');
+
             return;
         }
-
-        $attendance = Attendance::query()->where('status', '!=', Attendance::STATUS_VOID)->findOrFail($id);
 
         $this->resetValidation();
         $this->attendanceId = $attendance->id;
@@ -91,6 +106,7 @@ class Correction extends Component
         $this->split_at = '';
         $this->project_id = (string) $attendance->project_id;
         $this->reason = '';
+        $this->password = '';
         unset($this->attendance);
 
         Flux::modal('attendance-correction')->show();
@@ -98,14 +114,11 @@ class Correction extends Component
 
     public function save(AttendanceCorrectionService $corrections): void
     {
-        if (! $this->passwordConfirmed()) {
-            return;
-        }
-
         $attendance = $this->attendance;
 
         // Archived since the modal opened, e.g. another Admin corrected it first.
         if ($attendance === null) {
+            $this->reset('password');
             Flux::modal('attendance-correction')->close();
             Flux::toast(variant: 'danger', text: __('This attendance was already corrected. Correct the current record instead.'));
             $this->dispatch('attendance-corrected');
@@ -113,30 +126,36 @@ class Correction extends Component
             return;
         }
 
-        $this->validate([
-            'action' => ['required', 'in:'.implode(',', array_keys($this->availableActions()))],
-            'clock_in' => [$this->action === self::CHANGE_TIMES ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
-            'clock_out' => [in_array($this->action, [self::SET_CLOCK_OUT, self::CHANGE_TIMES], true) ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
-            'split_at' => [$this->action === self::SPLIT ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
-            'project_id' => [$this->action === self::CHANGE_PROJECT ? 'required' : 'nullable', 'integer', Rule::exists('projects', 'id')->withoutTrashed()],
-            'reason' => ['required', 'string', 'min:'.AttendanceCorrectionService::MIN_REASON_LENGTH, 'max:'.AttendanceCorrectionService::MAX_REASON_LENGTH],
-        ], [], [
-            'clock_in' => __('clock-in'),
-            'clock_out' => __('clock-out'),
-            'split_at' => __('split time'),
-            'project_id' => __('project'),
-        ]);
+        try {
+            $this->validate([
+                'action' => ['required', 'in:'.implode(',', array_keys($this->availableActions()))],
+                'clock_in' => [$this->action === self::CHANGE_TIMES ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
+                'clock_out' => [in_array($this->action, [self::SET_CLOCK_OUT, self::CHANGE_TIMES], true) ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
+                'split_at' => [$this->action === self::SPLIT ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
+                'project_id' => [$this->action === self::CHANGE_PROJECT ? 'required' : 'nullable', 'integer', Rule::exists('projects', 'id')->withoutTrashed()],
+                'reason' => ['required', 'string', 'min:'.AttendanceCorrectionService::MIN_REASON_LENGTH, 'max:'.AttendanceCorrectionService::MAX_REASON_LENGTH],
+            ], [], [
+                'clock_in' => __('clock-in'),
+                'clock_out' => __('clock-out'),
+                'split_at' => __('split time'),
+                'project_id' => __('project'),
+            ]);
 
-        $reason = trim($this->reason);
-        $admin = $this->admin();
+            $this->confirmPassword();
 
-        match ($this->action) {
-            self::SET_CLOCK_OUT => $corrections->setClockOut($attendance, $this->time($this->clock_out), $reason, $admin),
-            self::CHANGE_TIMES => $corrections->changeTimes($attendance, $this->time($this->clock_in), $this->time($this->clock_out), $reason, $admin),
-            self::CHANGE_PROJECT => $corrections->changeProject($attendance, Project::query()->findOrFail((int) $this->project_id), $reason, $admin),
-            self::SPLIT => $corrections->split($attendance, $this->time($this->split_at), $reason, $admin),
-            self::VOID => $corrections->void($attendance, $reason, $admin),
-        };
+            $reason = trim($this->reason);
+            $admin = $this->admin();
+
+            match ($this->action) {
+                self::SET_CLOCK_OUT => $corrections->setClockOut($attendance, $this->time($this->clock_out), $reason, $admin),
+                self::CHANGE_TIMES => $corrections->changeTimes($attendance, $this->time($this->clock_in), $this->time($this->clock_out), $reason, $admin),
+                self::CHANGE_PROJECT => $corrections->changeProject($attendance, Project::query()->findOrFail((int) $this->project_id), $reason, $admin),
+                self::SPLIT => $corrections->split($attendance, $this->time($this->split_at), $reason, $admin),
+                self::VOID => $corrections->void($attendance, $reason, $admin),
+            };
+        } finally {
+            $this->reset('password');
+        }
 
         Flux::modal('attendance-correction')->close();
         Flux::toast(variant: 'success', text: __('Attendance corrected. The original is kept for comparison.'));
@@ -215,21 +234,28 @@ class Correction extends Component
     }
 
     /**
-     * Same check as the password.confirm middleware; when the confirmation is missing or too old,
-     * send the Admin to confirm it and back to this page.
+     * The Admin's password must match (the same rule as Security settings). After five wrong
+     * passwords in a minute, saving is refused until the minute is over.
      */
-    private function passwordConfirmed(): bool
+    private function confirmPassword(): void
     {
-        $confirmedAt = (int) session('auth.password_confirmed_at', 0);
+        $key = 'attendance-correction:'.Auth::id();
 
-        if (time() - $confirmedAt <= (int) config('auth.password_timeout', 10800)) {
-            return true;
+        if (RateLimiter::tooManyAttempts($key, self::PASSWORD_ATTEMPTS)) {
+            throw ValidationException::withMessages([
+                'password' => __('Too many wrong passwords. Try again in :seconds seconds.', ['seconds' => RateLimiter::availableIn($key)]),
+            ]);
         }
 
-        redirect()->setIntendedUrl(url()->previous(route('attendance.index')));
-        $this->redirectRoute('password.confirm');
+        try {
+            $this->validate(['password' => $this->currentPasswordRules()], [], ['password' => __('password')]);
+        } catch (ValidationException $e) {
+            RateLimiter::hit($key, 60);
 
-        return false;
+            throw $e;
+        }
+
+        RateLimiter::clear($key);
     }
 
     private function time(string $value): Carbon

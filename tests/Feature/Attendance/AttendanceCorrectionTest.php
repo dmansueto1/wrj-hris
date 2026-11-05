@@ -21,6 +21,9 @@ class AttendanceCorrectionTest extends TestCase
 
     private const REASON = 'Forgot to clock out at lunch.';
 
+    /** The factory password of every user. */
+    private const PASSWORD = 'password';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -38,6 +41,7 @@ class AttendanceCorrectionTest extends TestCase
             ->assertSet('action', Correction::SET_CLOCK_OUT)
             ->set('clock_out', '2026-10-21T11:30')
             ->set('reason', self::REASON)
+            ->set('password', self::PASSWORD)
             ->call('save')
             ->assertHasNoErrors()
             ->assertDispatched('attendance-corrected');
@@ -63,6 +67,7 @@ class AttendanceCorrectionTest extends TestCase
             ->set('action', Correction::CHANGE_PROJECT)
             ->set('project_id', (string) $projectB->id)
             ->set('reason', 'Worked at Project B that morning.')
+            ->set('password', self::PASSWORD)
             ->call('save')
             ->assertHasNoErrors();
 
@@ -80,6 +85,7 @@ class AttendanceCorrectionTest extends TestCase
             ->set('action', Correction::SPLIT)
             ->set('split_at', '2026-10-21T12:00')
             ->set('reason', 'Missed the lunch clock-out.')
+            ->set('password', self::PASSWORD)
             ->call('save')
             ->assertHasNoErrors();
 
@@ -96,6 +102,7 @@ class AttendanceCorrectionTest extends TestCase
             ->call('open', $attendance->id)
             ->set('action', Correction::VOID)
             ->set('reason', 'Clocked in by mistake.')
+            ->set('password', self::PASSWORD)
             ->call('save')
             ->assertHasNoErrors();
 
@@ -113,6 +120,7 @@ class AttendanceCorrectionTest extends TestCase
             ->call('open', $attendance->id)
             ->set('clock_out', '2026-10-21T11:30')
             ->set('reason', '')
+            ->set('password', self::PASSWORD)
             ->call('save')
             ->assertHasErrors(['reason'])
             ->assertNotDispatched('attendance-corrected');
@@ -139,6 +147,7 @@ class AttendanceCorrectionTest extends TestCase
             ->assertSet('clock_out', '2026-10-21T11:30')
             ->set('clock_out', '2026-10-21T13:00')
             ->set('reason', self::REASON)
+            ->set('password', self::PASSWORD)
             ->call('save')
             ->assertHasErrors(['clock_out']);
 
@@ -158,7 +167,6 @@ class AttendanceCorrectionTest extends TestCase
     public function testStaffAndWorkersCannotOpenOrCallTheCorrectionActions(string $role): void
     {
         $this->actingAs(User::factory()->{$role}()->create());
-        session(['auth.password_confirmed_at' => time()]);
         $attendance = Attendance::factory()->onDate('2026-10-21')->create();
 
         Livewire::test(Correction::class)->assertForbidden();
@@ -187,20 +195,85 @@ class AttendanceCorrectionTest extends TestCase
         $this->assertSame(1, Attendance::withTrashed()->count());
     }
 
-    public function testAStalePasswordConfirmationSendsTheAdminToConfirmIt(): void
+    public function testTheModalOpensWithoutAPasswordPageAndStartsWithAnEmptyPassword(): void
     {
-        $this->actingAs(User::factory()->admin()->create());
+        $this->signInAdmin();
+        $attendance = Attendance::factory()->onDate('2026-10-21')->create();
+
+        Livewire::test(Correction::class)
+            ->set('password', 'left over')
+            ->call('open', $attendance->id)
+            ->assertNoRedirect()
+            ->assertSet('password', '')
+            ->assertSeeHtml('data-test="correction-password"');
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function badPasswords(): array
+    {
+        return ['missing' => [''], 'wrong' => ['not-my-password']];
+    }
+
+    #[DataProvider('badPasswords')]
+    public function testEverySaveNeedsTheAdminsPassword(string $password): void
+    {
+        $this->signInAdmin();
         $attendance = Attendance::factory()->onDate('2026-10-21')->create();
 
         Livewire::test(Correction::class)
             ->call('open', $attendance->id)
-            ->assertRedirect(route('password.confirm'));
+            ->set('action', Correction::VOID)
+            ->set('reason', 'Clocked in by mistake.')
+            ->set('password', $password)
+            ->call('save')
+            ->assertHasErrors(['password'])
+            ->assertSet('password', '')
+            ->assertNotDispatched('attendance-corrected');
 
-        session(['auth.password_confirmed_at' => time() - config('auth.password_timeout') - 1]);
+        $this->assertNotSoftDeleted($attendance);
+        $this->assertSame(1, Attendance::withTrashed()->count());
+    }
+
+    public function testARecentPasswordConfirmationDoesNotSkipThePassword(): void
+    {
+        $this->signInAdmin();
+        session(['auth.password_confirmed_at' => time()]);
+        $attendance = Attendance::factory()->onDate('2026-10-21')->create();
 
         Livewire::test(Correction::class)
             ->call('open', $attendance->id)
-            ->assertRedirect(route('password.confirm'));
+            ->set('action', Correction::VOID)
+            ->set('reason', 'Clocked in by mistake.')
+            ->call('save')
+            ->assertHasErrors(['password']);
+
+        $this->assertNotSoftDeleted($attendance);
+    }
+
+    public function testFiveWrongPasswordsLockTheSaveForAMinute(): void
+    {
+        $this->signInAdmin();
+        $attendance = Attendance::factory()->onDate('2026-10-21')->create();
+
+        $component = Livewire::test(Correction::class)
+            ->call('open', $attendance->id)
+            ->set('action', Correction::VOID)
+            ->set('reason', 'Clocked in by mistake.');
+
+        foreach (range(1, 5) as $attempt) {
+            $component->set('password', 'wrong-'.$attempt)->call('save')->assertHasErrors(['password']);
+        }
+
+        // Even the right password is refused until the minute is over.
+        $component->set('password', self::PASSWORD)->call('save')->assertHasErrors(['password']);
+        $this->assertNotSoftDeleted($attendance);
+
+        $this->travel(61)->seconds();
+
+        $component->set('password', self::PASSWORD)->call('save')->assertHasNoErrors();
+        $this->assertSoftDeleted($attendance);
     }
 
     public function testAdminSeesTheCorrectButtonOnEachRow(): void
@@ -237,11 +310,26 @@ class AttendanceCorrectionTest extends TestCase
         // Another Admin corrects it first.
         app(AttendanceCorrectionService::class)->void($attendance, 'Duplicate attendance record.', $admin);
 
-        $component->call('save')
+        $component->set('password', self::PASSWORD)
+            ->call('save')
             ->assertNoRedirect()
             ->assertDispatched('attendance-corrected');
 
         $this->assertSame(2, Attendance::withTrashed()->count());
+    }
+
+    public function testOpeningARecordThatWasAlreadyCorrectedShowsAMessage(): void
+    {
+        $admin = $this->signInAdmin();
+        $attendance = Attendance::factory()->onDate('2026-10-21')->create();
+
+        // Another Admin corrects it after this page loaded.
+        app(AttendanceCorrectionService::class)->void($attendance, 'Duplicate attendance record.', $admin);
+
+        Livewire::test(Correction::class)
+            ->call('open', $attendance->id)
+            ->assertSet('attendanceId', null)
+            ->assertDispatched('attendance-corrected');
     }
 
     public function testAnArchivedProjectFailsValidation(): void
@@ -258,7 +346,7 @@ class AttendanceCorrectionTest extends TestCase
 
         $archived->delete();
 
-        $component->call('save')->assertHasErrors(['project_id']);
+        $component->set('password', self::PASSWORD)->call('save')->assertHasErrors(['project_id']);
 
         $this->assertNotSoftDeleted($attendance);
     }
@@ -314,7 +402,6 @@ class AttendanceCorrectionTest extends TestCase
     {
         $admin = User::factory()->admin()->create();
         $this->actingAs($admin);
-        session(['auth.password_confirmed_at' => time()]);
 
         return $admin;
     }
