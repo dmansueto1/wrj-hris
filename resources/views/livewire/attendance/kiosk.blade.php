@@ -93,6 +93,8 @@
                         </button>
                     </div>
 
+                    @include('livewire.attendance.partials.flagged-notice', ['flagged' => $this->flagged, 'test' => 'kiosk-flagged-notice'])
+
                     @if ($this->openDuty)
                         @php($duty = $this->openDuty)
                         <div

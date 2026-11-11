@@ -14,6 +14,8 @@
         <flux:callout variant="danger" icon="exclamation-circle" :heading="$message" role="alert" data-test="clock-error" />
     @enderror
 
+    @include('livewire.attendance.partials.flagged-notice', ['flagged' => $this->flagged, 'test' => 'flagged-notice'])
+
     @if ($lastClockOut)
         <flux:callout variant="success" icon="check-circle" data-test="clock-out-summary">
             <flux:callout.heading>{{ __('Clocked out from :project', ['project' => $lastClockOut['project']]) }}</flux:callout.heading>

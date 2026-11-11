@@ -48,11 +48,11 @@
             <div class="flex items-center justify-between gap-4">
                 <flux:checkbox name="remember" :label="__('Remember me')" :checked="old('remember')" />
 
-                @if (Route::has('password.request'))
+                {{-- @if (Route::has('password.request'))
                     <flux:link class="text-sm whitespace-nowrap" :href="route('password.request')" wire:navigate>
                         {{ __('Forgot your password?') }}
                     </flux:link>
-                @endif
+                @endif --}}
             </div>
 
             <button

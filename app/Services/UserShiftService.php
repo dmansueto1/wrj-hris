@@ -173,6 +173,24 @@ class UserShiftService
     }
 
     /**
+     * The user's rest weekdays (1 = Monday … 7 = Sunday): none for Flexible; a weekday marked rest
+     * day, or with no saved row, is one (as windows()). Uses the loaded `shifts` relation, so a
+     * list can eager-load it.
+     *
+     * @return list<int>
+     */
+    public function restWeekdays(User $user): array
+    {
+        if ($user->shift_type === User::SHIFT_FLEXIBLE) {
+            return [];
+        }
+
+        $working = $user->shifts->reject(fn (UserShift $day) => $day->is_rest_day)->pluck('weekday')->all();
+
+        return array_values(array_diff(array_keys(self::WEEKDAYS), $working));
+    }
+
+    /**
      * The user's shift windows on a work date (Asia/Manila), for T-11.3: null for Flexible, []
      * for a rest day.
      *

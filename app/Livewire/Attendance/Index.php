@@ -24,15 +24,18 @@ use Livewire\Component;
  * - Daily attendance: every employee on one date, sorted by last name, Present or Absent.
  * - By employee: one employee's attendance day by day over a date range, Absent days included.
  * - Import Attendance (T-12.1, Admin only): the Attendance\Import component.
+ * "Needs correction (N)" (T-13) replaces the tab's list with every flagged attendance, any date.
  *
- * @property-read LengthAwarePaginator<int, array{user: User, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $daily
+ * @property-read LengthAwarePaginator<int, array{user: User, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $daily
  * @property-read array{employees: int, present: int, absent: int, labor_cost: string} $dailySummary
- * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null $employeeDays
+ * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null $employeeDays
  * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string}|null $employeeSummary
  * @property-read array{from: string, to: string, shortened: bool} $range
  * @property-read Collection<int, User> $users
  * @property-read Collection<int, Project> $projects
  * @property-read string|null $projectName
+ * @property-read LengthAwarePaginator<int, Attendance> $flagged
+ * @property-read int $flaggedCount
  */
 #[Title('All Attendance')]
 class Index extends Component
@@ -70,6 +73,10 @@ class Index extends Component
     #[Url]
     public string $to = '';
 
+    /** "Needs correction" (T-13): show only flagged attendance, on any date. */
+    #[Url(as: 'needs_correction', except: false)]
+    public bool $needsCorrection = false;
+
     public function boot(): void
     {
         abort_unless(Auth::user()?->can('attendance.view-all'), 403);
@@ -95,7 +102,12 @@ class Index extends Component
             default => null,
         };
 
-        if (in_array($property, ['tab', 'date', 'user', 'project', 'sortBy', 'employee', 'from', 'to'], true)) {
+        // Choosing a tab leaves the "Needs correction" list.
+        if ($property === 'tab') {
+            $this->needsCorrection = false;
+        }
+
+        if (in_array($property, ['tab', 'date', 'user', 'project', 'sortBy', 'employee', 'from', 'to', 'needsCorrection'], true)) {
             $this->resetPage();
         }
     }
@@ -106,6 +118,13 @@ class Index extends Component
      */
     public function clearFilters(AttendanceHistoryService $history): void
     {
+        if ($this->needsCorrection) {
+            $this->needsCorrection = false;
+            $this->resetPage();
+
+            return;
+        }
+
         if ($this->tab === 'employee') {
             $this->employee = '';
             [$this->from, $this->to] = $history->currentWeek();
@@ -118,7 +137,7 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{user: User, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
+     * @return LengthAwarePaginator<int, array{user: User, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     #[Computed]
     public function daily(): LengthAwarePaginator
@@ -136,7 +155,7 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null
+     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null
      */
     #[Computed]
     public function employeeDays(): ?LengthAwarePaginator
@@ -203,12 +222,42 @@ class Index extends Component
     }
 
     /**
+     * "Needs correction (N)" link (T-13).
+     */
+    public function showNeedsCorrection(): void
+    {
+        if ($this->tab === 'import') {
+            $this->tab = 'daily';
+        }
+
+        $this->needsCorrection = true;
+        $this->resetPage();
+    }
+
+    /**
+     * Every flagged attendance, oldest first (T-13).
+     *
+     * @return LengthAwarePaginator<int, Attendance>
+     */
+    #[Computed]
+    public function flagged(): LengthAwarePaginator
+    {
+        return app(AttendanceHistoryService::class)->flagged($this->perPage());
+    }
+
+    #[Computed]
+    public function flaggedCount(): int
+    {
+        return app(AttendanceHistoryService::class)->flaggedCount();
+    }
+
+    /**
      * Re-render with the corrected figures after the correction modal saves (T-12).
      */
     #[On('attendance-corrected')]
     public function refreshAfterCorrection(): void
     {
-        unset($this->daily, $this->dailySummary, $this->employeeDays, $this->employeeSummary);
+        unset($this->daily, $this->dailySummary, $this->employeeDays, $this->employeeSummary, $this->flagged, $this->flaggedCount);
     }
 
     public function render(): View

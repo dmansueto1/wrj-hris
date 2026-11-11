@@ -4,7 +4,7 @@
 <div class="grid gap-4 sm:grid-cols-3">
     <x-stat-card icon="users" color="indigo" :label="__('Employees')" :value="number_format($this->dailySummary['employees'])" :note="\Illuminate\Support\Carbon::parse($date)->format('l, M j, Y')" />
     <x-stat-card icon="check-circle" color="green" :label="__('Present')" :value="number_format($this->dailySummary['present'])" :note="__('With attendance this day')" />
-    <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent')" :value="number_format($this->dailySummary['absent'])" :note="__('No attendance this day')" />
+    <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent')" :value="number_format($this->dailySummary['absent'])" :note="__('No attendance, not on a rest day')" />
 </div>
 
 {{-- Filters --}}
@@ -86,7 +86,7 @@
                             @include('livewire.attendance.partials.day-cells', ['day' => $attendanceDay, 'photos' => true])
                             <flux:table.cell class="w-32">@include('livewire.attendance.partials.day-remarks', ['day' => $attendanceDay])</flux:table.cell>
                             <flux:table.cell>
-                                @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
+                                @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'restDay' => $row['rest_day'], 'future' => $row['future']])
                             </flux:table.cell>
                             @can('attendance.correct')
                                 <flux:table.cell align="end">
@@ -109,7 +109,7 @@
                             <span class="truncate font-semibold text-brand-navy">{{ $row['user']->listName() }}</span>
                         </div>
                         <div class="flex shrink-0 items-center gap-1">
-                            @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'future' => $row['future']])
+                            @include('livewire.attendance.partials.presence-badge', ['present' => $row['present'], 'restDay' => $row['rest_day'], 'future' => $row['future']])
                             @include('livewire.attendance.partials.correct-menu', ['attendances' => $row['attendances'], 'key' => $row['user']->id])
                         </div>
                     </div>

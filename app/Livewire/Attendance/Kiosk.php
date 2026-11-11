@@ -173,6 +173,17 @@ class Kiosk extends Component
         return $this->user ? app(UserShiftService::class)->todayLabel($this->user) : null;
     }
 
+    /**
+     * The verified worker's flagged attendance (T-13), shown as a notice in step 2.
+     *
+     * @return Collection<int, Attendance>
+     */
+    #[Computed]
+    public function flagged(): Collection
+    {
+        return $this->user ? app(AttendanceService::class)->flaggedFor($this->user) : new Collection;
+    }
+
     #[Computed]
     public function openDuty(): ?Attendance
     {

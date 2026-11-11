@@ -20,6 +20,8 @@ use Throwable;
  */
 class AttendanceHistoryService
 {
+    public function __construct(private readonly UserShiftService $shifts) {}
+
     /** Daily attendance sort orders: last name A–Z, project A–Z, most worked time first. */
     public const DAILY_SORTS = ['name', 'project', 'worked_time'];
 
@@ -87,13 +89,15 @@ class AttendanceHistoryService
      * Sorted by `name` (last name A–Z), `project` (the project of their first attendance that day,
      * A–Z) or `worked_time` (most hours that day first); absent employees come after, by name.
      *
-     * A future date is neither Present nor Absent yet: its items have `future = true`.
+     * A future date is neither Present nor Absent yet: its items have `future = true`. An employee
+     * without attendance whose shift has the date as a rest day has `rest_day = true` (Rest Day,
+     * not Absent).
      *
-     * @return LengthAwarePaginator<int, array{user: User, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
+     * @return LengthAwarePaginator<int, array{user: User, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     public function daily(string $date, ?int $userId, ?int $projectId, string $sortBy, int $perPage): LengthAwarePaginator
     {
-        $users = $this->sorted($this->dailyEmployees($date, $userId, $projectId), $date, $projectId, $sortBy)->paginate($perPage);
+        $users = $this->sorted($this->dailyEmployees($date, $userId, $projectId), $date, $projectId, $sortBy)->with('shifts')->paginate($perPage);
 
         $attendances = $this->presentOn($date, $projectId)
             ->with('project')
@@ -102,19 +106,27 @@ class AttendanceHistoryService
             ->get();
 
         $future = $date > now()->toDateString();
+        $weekday = Carbon::parse($date)->isoWeekday();
 
-        return $users->through(function (User $user) use ($attendances, $future) {
+        return $users->through(function (User $user) use ($attendances, $future, $weekday) {
             // Each attendance gets its row's user (archived ones too) without another query.
             $own = $attendances->filter(fn (Attendance $attendance) => $attendance->user_id === $user->id)->values()
                 ->each(fn (Attendance $attendance) => $attendance->setRelation('user', $user));
 
-            return ['user' => $user, 'present' => $own->isNotEmpty(), 'future' => $future, 'attendances' => $own];
+            return [
+                'user' => $user,
+                'present' => $own->isNotEmpty(),
+                'rest_day' => $own->isEmpty() && in_array($weekday, $this->shifts->restWeekdays($user), true),
+                'future' => $future,
+                'attendances' => $own,
+            ];
         });
     }
 
     /**
      * Counts for the Daily attendance stat cards, and the date's labor cost (closed and adjusted),
-     * for the same employee and project filters as daily().
+     * for the same employee and project filters as daily(). Employees on a rest day without
+     * attendance are not Absent.
      *
      * @return array{employees: int, present: int, absent: int, labor_cost: string}
      */
@@ -127,6 +139,17 @@ class AttendanceHistoryService
             ->distinct()
             ->count('user_id');
 
+        // Not Flexible, and the weekday has no working row (as UserShiftService::restWeekdays()).
+        $restDay = $this->dailyEmployees($date, $userId, $projectId)
+            ->where('shift_type', '!=', User::SHIFT_FLEXIBLE)
+            ->whereDoesntHave('shifts', fn (Builder $shift) => $shift
+                ->where('weekday', Carbon::parse($date)->isoWeekday())
+                ->where('is_rest_day', false))
+            ->whereDoesntHave('attendances', fn (Builder $attendance) => $attendance
+                ->where('work_date', $date)
+                ->whereIn('status', Attendance::PRESENT_STATUSES))
+            ->count();
+
         $laborCost = Attendance::query()
             ->counted()
             ->where('work_date', $date)
@@ -138,7 +161,7 @@ class AttendanceHistoryService
             'employees' => $employees,
             'present' => $present,
             // Nobody is absent on a day that has not happened yet.
-            'absent' => $date > now()->toDateString() ? 0 : $employees - $present,
+            'absent' => $date > now()->toDateString() ? 0 : $employees - $present - $restDay,
             'labor_cost' => $this->hundredths((string) $laborCost),
         ];
     }
@@ -159,11 +182,12 @@ class AttendanceHistoryService
 
     /**
      * By employee (T-11.4): one item per date in the range, newest first, one page of days at a
-     * time. Days without attendance (void left out) are Absent.
+     * time. Days without attendance (void left out) are Absent, or Rest Day (`rest_day = true`) when
+     * the employee's shift has that weekday as a rest day.
      *
      * Days after today have `future = true`: neither Present nor Absent yet.
      *
-     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
+     * @return LengthAwarePaginator<int, array{date: Carbon, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>
      */
     public function employeeDays(int $userId, string $from, string $to, int $perPage): LengthAwarePaginator
     {
@@ -190,11 +214,18 @@ class AttendanceHistoryService
                 ->get();
 
         $today = now()->toDateString();
+        $restWeekdays = $this->restWeekdaysOf($userId);
 
-        $items = $dates->map(function (Carbon $date) use ($attendances, $today) {
+        $items = $dates->map(function (Carbon $date) use ($attendances, $today, $restWeekdays) {
             $own = $attendances->filter(fn (Attendance $attendance) => $attendance->work_date->isSameDay($date))->values();
 
-            return ['date' => $date, 'present' => $own->isNotEmpty(), 'future' => $date->toDateString() > $today, 'attendances' => $own];
+            return [
+                'date' => $date,
+                'present' => $own->isNotEmpty(),
+                'rest_day' => $own->isEmpty() && in_array($date->isoWeekday(), $restWeekdays, true),
+                'future' => $date->toDateString() > $today,
+                'attendances' => $own,
+            ];
         })->values()->all();
 
         return new Paginator($items, $total, $perPage, $page, [
@@ -204,7 +235,29 @@ class AttendanceHistoryService
     }
 
     /**
-     * Present and absent days, hours and labor cost (closed and adjusted) over the range.
+     * "Needs correction" (T-13): every flagged attendance on any date, oldest first, with its
+     * employee (archived ones too) and project.
+     *
+     * @return LengthAwarePaginator<int, Attendance>
+     */
+    public function flagged(int $perPage): LengthAwarePaginator
+    {
+        return Attendance::query()
+            ->where('status', Attendance::STATUS_FLAGGED)
+            ->with(['project', 'user' => fn ($query) => $query->withTrashed()])
+            ->orderBy('clock_in_at')
+            ->orderBy('id')
+            ->paginate($perPage);
+    }
+
+    public function flaggedCount(): int
+    {
+        return Attendance::query()->where('status', Attendance::STATUS_FLAGGED)->count();
+    }
+
+    /**
+     * Present and absent days, hours and labor cost (closed and adjusted) over the range. A rest
+     * day without attendance is not an absent day.
      *
      * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string}
      */
@@ -212,16 +265,23 @@ class AttendanceHistoryService
     {
         ['from' => $from, 'to' => $to] = $this->cappedRange($from, $to);
 
-        // Absent days are counted only up to today: later days have not happened yet.
-        $today = now()->toDateString();
-        $pastDays = $from > $today ? 0 : (int) Carbon::parse($from)->diffInDays(Carbon::parse(min($to, $today))) + 1;
-
-        $presentDays = Attendance::query()
+        $presentDates = Attendance::query()
             ->where('user_id', $userId)
             ->whereIn('status', Attendance::PRESENT_STATUSES)
             ->whereBetween('work_date', [$from, $to])
             ->distinct()
-            ->count('work_date');
+            ->pluck('work_date')
+            ->map(fn ($date) => Carbon::parse($date)->toDateString())
+            ->all();
+
+        // Absent days are counted only up to today: later days have not happened yet.
+        $restWeekdays = $this->restWeekdaysOf($userId);
+        $absentDays = 0;
+        for ($day = Carbon::parse($from), $last = min($to, now()->toDateString()); $day->toDateString() <= $last; $day = $day->addDay()) {
+            if (! in_array($day->toDateString(), $presentDates, true) && ! in_array($day->isoWeekday(), $restWeekdays, true)) {
+                $absentDays++;
+            }
+        }
 
         $sums = Attendance::query()
             ->counted()
@@ -232,11 +292,23 @@ class AttendanceHistoryService
             ->first();
 
         return [
-            'present_days' => $presentDays,
-            'absent_days' => max(0, $pastDays - $presentDays),
+            'present_days' => count($presentDates),
+            'absent_days' => $absentDays,
             'hours' => $this->hundredths((string) ($sums->hours ?? '0')),
             'labor_cost' => $this->hundredths((string) ($sums->labor_cost ?? '0')),
         ];
+    }
+
+    /**
+     * The employee's rest weekdays (archived ones too); none when the employee is gone.
+     *
+     * @return list<int>
+     */
+    private function restWeekdaysOf(int $userId): array
+    {
+        $user = User::withTrashed()->with('shifts')->find($userId);
+
+        return $user === null ? [] : $this->shifts->restWeekdays($user);
     }
 
     /**

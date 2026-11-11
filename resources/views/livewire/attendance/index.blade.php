@@ -1,6 +1,21 @@
 {{-- All Attendance (T-11, T-11.4, T-12.1): Daily attendance and By employee tabs for Admin and Staff, Import Attendance for Admin. --}}
 <div class="flex flex-col gap-6" x-data="{ photo: { src: '', label: '' } }">
-    <x-page-header :title="__('All Attendance')" :description="__('Who is present or absent each day, and each employee\'s attendance over time.')" />
+    <x-page-header :title="__('All Attendance')" :description="__('Who is present or absent each day, and each employee\'s attendance over time.')">
+        @if ($this->flaggedCount > 0)
+            <x-slot:actions>
+                {{-- T-13: attendance not clocked out after 12 hours, waiting for the Admin --}}
+                <button
+                    type="button"
+                    wire:click="showNeedsCorrection"
+                    class="inline-flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm font-semibold text-warning ring-1 ring-brand-gold/40 transition-colors duration-150 hover:bg-brand-gold/20"
+                    data-test="needs-correction-link"
+                >
+                    <flux:icon icon="exclamation-triangle" class="size-4" />
+                    {{ __('Needs correction (:count)', ['count' => number_format($this->flaggedCount)]) }}
+                </button>
+            </x-slot:actions>
+        @endif
+    </x-page-header>
 
     {{-- Tabs (Flux free has no tabs component) --}}
     <div class="flex gap-1 overflow-x-auto rounded-card bg-white p-1 shadow-card ring-1 ring-brand-navy/5" role="tablist" aria-label="{{ __('All Attendance views') }}">
@@ -29,6 +44,8 @@
 
     @if ($tab === 'import')
         <livewire:attendance.import />
+    @elseif ($needsCorrection)
+        @include('livewire.attendance.partials.needs-correction')
     @elseif ($tab === 'employee')
         @include('livewire.attendance.partials.employee-tab')
     @else

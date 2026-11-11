@@ -128,6 +128,17 @@ class Clock extends Component
         return app(UserShiftService::class)->todayLabel($this->user());
     }
 
+    /**
+     * Attendance not clocked out and flagged for the Admin (T-13), shown as a notice.
+     *
+     * @return Collection<int, Attendance>
+     */
+    #[Computed]
+    public function flagged(): Collection
+    {
+        return app(AttendanceService::class)->flaggedFor($this->user());
+    }
+
     #[Computed]
     public function openSession(): ?Attendance
     {

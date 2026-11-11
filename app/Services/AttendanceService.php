@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\DB;
  */
 class AttendanceService
 {
+    /** Attendance still open this many hours after clock-in is flagged (PRD 7.4 rule 7). */
+    public const FLAG_AFTER_HOURS = 12;
+
     public function __construct(private UserShiftService $shifts) {}
 
     public function clockIn(User $user, Project $project, ?float $lat = null, ?float $lng = null, ?string $photoPath = null): Attendance
@@ -90,6 +93,33 @@ class AttendanceService
             'start' => $window[0]->format('Y-m-d H:i'),
             'end' => $window[1]->format('Y-m-d H:i'),
         ], [...$overnight, ...$windows]);
+    }
+
+    /**
+     * Flag attendance still Clocked In more than FLAG_AFTER_HOURS after clock-in, for the Admin to
+     * correct (PRD 7.4 rule 7, T-13). A flagged record no longer counts as open, so it never
+     * blocks the next clock-in. Returns how many were flagged; a second run flags nothing.
+     */
+    public function flagOpen(): int
+    {
+        return Attendance::query()
+            ->open()
+            ->where('clock_in_at', '<', now()->subHours(self::FLAG_AFTER_HOURS))
+            ->update(['status' => Attendance::STATUS_FLAGGED]);
+    }
+
+    /**
+     * The user's flagged attendance (not clocked out, waiting for the Admin), oldest first.
+     *
+     * @return Collection<int, Attendance>
+     */
+    public function flaggedFor(User $user): Collection
+    {
+        return Attendance::query()
+            ->where('user_id', $user->id)
+            ->where('status', Attendance::STATUS_FLAGGED)
+            ->orderBy('clock_in_at')
+            ->get();
     }
 
     /**

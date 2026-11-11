@@ -57,7 +57,7 @@
 @else
     <div class="grid gap-4 sm:grid-cols-3">
         <x-stat-card icon="check-circle" color="green" :label="__('Present days')" :value="number_format($this->employeeSummary['present_days'])" :note="__('Days with attendance')" />
-        <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent days')" :value="number_format($this->employeeSummary['absent_days'])" :note="__('Days without attendance')" />
+        <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent days')" :value="number_format($this->employeeSummary['absent_days'])" :note="__('Working days without attendance')" />
         <x-stat-card icon="clock" color="blue" :label="__('Total hours')" :value="$this->employeeSummary['hours'].' h'" :note="__('In this date range')" />
     </div>
 
@@ -90,7 +90,7 @@
                             @include('livewire.attendance.partials.day-cells', ['day' => $attendanceDay, 'photos' => true])
                             <flux:table.cell class="w-32">@include('livewire.attendance.partials.day-remarks', ['day' => $attendanceDay])</flux:table.cell>
                             <flux:table.cell>
-                                @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
+                                @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'restDay' => $day['rest_day'], 'future' => $day['future']])
                             </flux:table.cell>
                             @can('attendance.correct')
                                 <flux:table.cell align="end">
@@ -116,7 +116,7 @@
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-semibold text-brand-navy">{{ $day['date']->format('l, M j') }}</span>
                         <div class="flex shrink-0 items-center gap-1">
-                            @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'future' => $day['future']])
+                            @include('livewire.attendance.partials.presence-badge', ['present' => $day['present'], 'restDay' => $day['rest_day'], 'future' => $day['future']])
                             @include('livewire.attendance.partials.correct-menu', ['attendances' => $day['attendances'], 'key' => $day['date']->toDateString()])
                         </div>
                     </div>
