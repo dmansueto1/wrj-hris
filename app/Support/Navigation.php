@@ -6,6 +6,7 @@ use App\Livewire\Attendance;
 use App\Livewire\Devices;
 use App\Livewire\Materials;
 use App\Livewire\Projects;
+use App\Livewire\SystemSettings;
 use App\Livewire\Users;
 use App\Models\User;
 use InvalidArgumentException;
@@ -30,6 +31,7 @@ class Navigation
             ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'group' => 'Operations', 'icon' => 'cube', 'permissions' => ['materials.manage'], 'component' => Materials\Index::class],
             ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'group' => 'Admin', 'icon' => 'users', 'permissions' => ['users.manage'], 'component' => Users\Index::class, 'middleware' => ['password.confirm']],
             ['label' => 'Devices', 'url' => 'devices', 'route' => 'devices.index', 'group' => 'Admin', 'icon' => 'device-tablet', 'permissions' => ['devices.manage'], 'component' => Devices\Index::class],
+            ['label' => 'System Settings', 'url' => 'system-settings', 'route' => 'system-settings.index', 'group' => 'Admin', 'icon' => 'cog-6-tooth', 'permissions' => ['settings.manage'], 'component' => SystemSettings\Index::class, 'middleware' => ['password.confirm']],
             ['label' => 'Reports', 'url' => 'reports', 'route' => 'reports.index', 'group' => 'Admin', 'icon' => 'document-chart-bar', 'permissions' => ['reports.export']],
         ];
     }

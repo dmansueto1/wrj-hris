@@ -28,6 +28,35 @@ class KioskTest extends TestCase
         $this->assertGuest();
     }
 
+    public function testClockingInAndOutAtTheKioskNeverLogsTheWorkerIn(): void
+    {
+        $worker = User::factory()->worker()->create();
+        $project = Project::factory()->ongoing()->create();
+
+        $this->verify($worker->username)->set('projectId', (string) $project->id)->call('clockIn')->assertHasNoErrors();
+        $this->assertGuest();
+
+        $this->verify($worker->username)->call('clockOut')->assertHasNoErrors();
+        $this->assertGuest();
+
+        // The web app still asks for a login afterwards.
+        $this->get(route('clock'))->assertRedirect(route('login'));
+    }
+
+    public function testTheKioskDoesNotSwitchTheBrowsersSignedInUser(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $worker = User::factory()->worker()->create();
+        $project = Project::factory()->ongoing()->create();
+        $this->actingAs($admin);
+
+        $this->verify($worker->username)->set('projectId', (string) $project->id)->call('clockIn')->assertHasNoErrors();
+
+        // The attendance is the worker's, but the browser is still signed in as the admin, not the worker.
+        $this->assertSame($worker->id, Attendance::sole()->user_id);
+        $this->assertAuthenticatedAs($admin);
+    }
+
     public function testALoggedInUserCanAlsoOpenTheKiosk(): void
     {
         $this->actingAs(User::factory()->admin()->create())

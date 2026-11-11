@@ -1,4 +1,4 @@
-{{-- "Needs correction" (T-13): every flagged attendance (not clocked out after 12 hours), any date, oldest first. Admin corrects from the row menu. --}}
+{{-- "Needs correction" (T-13): every flagged attendance (not clocked out past the flag time in System Settings), any date, oldest first. Admin corrects from the row menu. --}}
 <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
     <div class="flex flex-wrap items-center gap-2" data-test="active-filters">
         <x-filter-chip :label="__('Needs correction')" wire:click="clearFilters" />
@@ -6,7 +6,7 @@
             {{ __('Clear filters') }}
         </button>
     </div>
-    <p class="mt-2 text-sm text-zinc-600">{{ __('Attendance still Clocked In more than 12 hours after clock-in. Set the clock-out (or void it) so its hours and labor cost count.') }}</p>
+    <p class="mt-2 text-sm text-zinc-600">{{ __('Attendance still Clocked In more than :hours hours after clock-in. Set the clock-out (or void it) so its hours and labor cost count.', ['hours' => \App\Support\Settings::int('attendance_flag_after_hours')]) }}</p>
 </div>
 
 <x-data-card>

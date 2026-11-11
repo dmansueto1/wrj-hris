@@ -39,14 +39,12 @@ class ProjectMaterialEntry extends Model
     /** @use HasFactory<ProjectMaterialEntryFactory> */
     use HasFactory, SoftDeletes;
 
-    /** Used when the settings table has no markup row. */
-    public const DEFAULT_MARKUP_RATE = '0.20';
-
     protected static function booted(): void
     {
         static::saving(function (ProjectMaterialEntry $entry) {
             if ($entry->markup_rate === null || $entry->markup_rate === '') {
-                $entry->markup_rate = Settings::get('material_markup_rate', self::DEFAULT_MARKUP_RATE);
+                // System Settings; 0.20 (the catalog default) when it was never changed.
+                $entry->markup_rate = Settings::string('material_markup_rate');
             }
 
             $cost = MaterialCost::compute((string) $entry->unit_price, (string) $entry->quantity, (string) $entry->markup_rate);

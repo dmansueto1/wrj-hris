@@ -3,7 +3,7 @@
     <x-page-header :title="__('All Attendance')" :description="__('Who is present or absent each day, and each employee\'s attendance over time.')">
         @if ($this->flaggedCount > 0)
             <x-slot:actions>
-                {{-- T-13: attendance not clocked out after 12 hours, waiting for the Admin --}}
+                {{-- T-13: attendance not clocked out past the flag time in System Settings, waiting for the Admin --}}
                 <button
                     type="button"
                     wire:click="showNeedsCorrection"

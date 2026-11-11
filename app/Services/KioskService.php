@@ -23,7 +23,7 @@ class KioskService
     ) {}
 
     /**
-     * Check the credentials with the same rules and the same 15-minute lockout as the login page.
+     * Check the credentials with the same rules and the same lockout (System Settings) as the login page.
      * Never logs the user in.
      *
      * @throws ValidationException on a lockout, wrong credentials, an inactive account or no clock permission

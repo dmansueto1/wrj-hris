@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\Costing\LaborCost;
 use App\Support\Costing\ShiftMinutes;
 use App\Support\Money;
+use App\Support\Settings;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,9 +23,6 @@ use Illuminate\Support\Facades\DB;
  */
 class AttendanceService
 {
-    /** Attendance still open this many hours after clock-in is flagged (PRD 7.4 rule 7). */
-    public const FLAG_AFTER_HOURS = 12;
-
     public function __construct(private UserShiftService $shifts) {}
 
     public function clockIn(User $user, Project $project, ?float $lat = null, ?float $lng = null, ?string $photoPath = null): Attendance
@@ -96,7 +94,8 @@ class AttendanceService
     }
 
     /**
-     * Flag attendance still Clocked In more than FLAG_AFTER_HOURS after clock-in, for the Admin to
+     * Flag attendance still Clocked In longer than the flag time in System Settings (12 hours by
+     * default, PRD 7.4 rule 7) after clock-in, for the Admin to
      * correct (PRD 7.4 rule 7, T-13). A flagged record no longer counts as open, so it never
      * blocks the next clock-in. Returns how many were flagged; a second run flags nothing.
      */
@@ -104,7 +103,7 @@ class AttendanceService
     {
         return Attendance::query()
             ->open()
-            ->where('clock_in_at', '<', now()->subHours(self::FLAG_AFTER_HOURS))
+            ->where('clock_in_at', '<', now()->subHours(Settings::int('attendance_flag_after_hours')))
             ->update(['status' => Attendance::STATUS_FLAGGED]);
     }
 

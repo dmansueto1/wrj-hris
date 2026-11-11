@@ -21,7 +21,7 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // 15-minute lockout after 5 failed logins, with the minutes remaining in the message.
+        // Lockout after the attempts and minutes in System Settings, with the minutes remaining in the message.
         $this->app->singleton(FortifyLoginRateLimiter::class, LoginRateLimiter::class);
         $this->app->singleton(LockoutResponseContract::class, LockoutResponse::class);
     }

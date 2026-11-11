@@ -27,6 +27,7 @@ class RouteAuthorizationTest extends TestCase
             'Materials' => ['/materials', 200, 200, 403],
             'Users' => ['/users', 200, 403, 403],
             'Devices' => ['/devices', 200, 403, 403],
+            'System Settings' => ['/system-settings', 200, 403, 403],
             'Reports' => ['/reports', 200, 200, 403],
         ];
     }

@@ -9,7 +9,6 @@ use App\Models\ProjectMaterialEntry;
 use App\Models\User;
 use App\Support\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class MaterialEntryCostTest extends TestCase
@@ -139,6 +138,6 @@ class MaterialEntryCostTest extends TestCase
 
     private function setMarkup(string $rate): void
     {
-        DB::table('settings')->where('key', 'material_markup_rate')->update(['value' => $rate]);
+        Settings::set('material_markup_rate', $rate);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Device;
 use App\Models\User;
+use App\Support\Settings;
 use App\Support\UserAgent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
@@ -39,7 +40,7 @@ class DeviceService
 
     public static function required(): bool
     {
-        return (bool) config('attendance.require_approved_device', true);
+        return Settings::bool('attendance_require_approved_device');
     }
 
     /**
@@ -200,7 +201,8 @@ class DeviceService
     }
 
     /**
-     * Archive pending requests nobody approved within 30 days. Returns how many.
+     * Archive pending requests nobody approved within the days set in System Settings (30 by
+     * default). Returns how many.
      */
     public function prunePending(): int
     {
@@ -208,7 +210,7 @@ class DeviceService
 
         Device::query()
             ->where('status', Device::STATUS_PENDING)
-            ->where('last_seen_at', '<', now()->subDays(30))
+            ->where('last_seen_at', '<', now()->subDays(Settings::int('device_prune_pending_days')))
             ->each(function (Device $device) use (&$count) {
                 $device->delete();
                 $count++;

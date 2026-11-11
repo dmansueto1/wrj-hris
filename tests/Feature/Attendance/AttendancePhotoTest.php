@@ -8,6 +8,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AttendanceService;
+use App\Support\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +26,7 @@ class AttendancePhotoTest extends TestCase
         parent::setUp();
 
         Storage::fake('local');
-        config(['attendance.require_photo' => true]);
+        Settings::fake(['attendance_require_photo' => '1']);
     }
 
     public function testClockInAndOutOnTheClockScreenSaveBothPhotos(): void
@@ -70,7 +71,7 @@ class AttendancePhotoTest extends TestCase
             ->assertSeeHtml('data-test="open-camera-button"')
             ->assertSee('Open camera');
 
-        config(['attendance.require_photo' => false]);
+        Settings::fake(['attendance_require_photo' => '0']);
         $this->get(route('clock'))->assertOk()->assertDontSeeHtml('data-test="camera-capture"');
     }
 
@@ -107,7 +108,7 @@ class AttendancePhotoTest extends TestCase
 
         $this->get(route('clock'))->assertSee('After you press Clock Out, take a photo of yourself to confirm.');
 
-        config(['attendance.require_photo' => false]);
+        Settings::fake(['attendance_require_photo' => '0']);
         $this->get(route('clock'))->assertDontSeeHtml('data-test="photo-step-note"');
     }
 
@@ -227,7 +228,7 @@ class AttendancePhotoTest extends TestCase
 
     public function testWithoutTheRequirementBothScreensWorkWithoutAPhoto(): void
     {
-        config(['attendance.require_photo' => false]);
+        Settings::fake(['attendance_require_photo' => '0']);
         $worker = User::factory()->worker()->create();
         $project = Project::factory()->ongoing()->create();
 

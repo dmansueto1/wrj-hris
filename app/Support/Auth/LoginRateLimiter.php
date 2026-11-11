@@ -2,19 +2,16 @@
 
 namespace App\Support\Auth;
 
+use App\Support\Settings;
 use Illuminate\Http\Request;
 use Laravel\Fortify\LoginRateLimiter as FortifyLoginRateLimiter;
 
 /**
- * Locks a username + IP for 15 minutes after 5 failed logins (PRD section 8).
- * Fortify's default only blocks for one minute.
+ * Locks a username + IP after a number of failed logins, for a number of minutes, both from
+ * System Settings (5 and 15 by default, PRD section 8). Fortify's default only blocks for one minute.
  */
 class LoginRateLimiter extends FortifyLoginRateLimiter
 {
-    public const MAX_ATTEMPTS = 5;
-
-    public const LOCK_SECONDS = 15 * 60;
-
     public function tooManyAttempts(Request $request)
     {
         return $this->limiter->attempts($this->lockKey($request)) > 0;
@@ -23,12 +20,13 @@ class LoginRateLimiter extends FortifyLoginRateLimiter
     public function increment(Request $request)
     {
         $key = $this->throttleKey($request);
+        $lockSeconds = Settings::int('login_lockout_minutes') * 60;
 
-        $this->limiter->hit($key, self::LOCK_SECONDS);
+        $this->limiter->hit($key, $lockSeconds);
 
-        if ($this->limiter->attempts($key) >= self::MAX_ATTEMPTS) {
-            // Start the lock at the 5th failure so it lasts the full 15 minutes.
-            $this->limiter->hit($this->lockKey($request), self::LOCK_SECONDS);
+        if ($this->limiter->attempts($key) >= Settings::int('login_max_attempts')) {
+            // Start the lock at the last allowed failure so it lasts the full time.
+            $this->limiter->hit($this->lockKey($request), $lockSeconds);
             $this->limiter->clear($key);
         }
     }

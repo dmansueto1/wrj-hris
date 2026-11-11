@@ -16,12 +16,11 @@ class AttendancePhotos
     public const DISK = 'local';
 
     /**
-     * Whether a photo is required to clock in or out. Read from config for now; a Settings
-     * screen can replace the source here later.
+     * Whether a photo is required to clock in or out (System Settings, T-14.1).
      */
     public static function required(): bool
     {
-        return (bool) config('attendance.require_photo', true);
+        return Settings::bool('attendance_require_photo');
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Models\Device;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\DeviceService;
+use App\Support\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cookie;
 use Livewire\Livewire;
@@ -22,7 +23,7 @@ class DeviceAccessTest extends TestCase
     {
         parent::setUp();
 
-        config(['attendance.require_approved_device' => true]);
+        Settings::fake(['attendance_require_approved_device' => '1']);
     }
 
     public function testANewBrowserSeesTheApprovalScreenOnTheKioskAndNothingIsSaved(): void
@@ -167,7 +168,7 @@ class DeviceAccessTest extends TestCase
 
     public function testWithTheSettingOffBothPagesWorkAsBefore(): void
     {
-        config(['attendance.require_approved_device' => false]);
+        Settings::fake(['attendance_require_approved_device' => '0']);
 
         $this->get(route('kiosk'))
             ->assertSeeHtml('data-test="kiosk-continue-button"')

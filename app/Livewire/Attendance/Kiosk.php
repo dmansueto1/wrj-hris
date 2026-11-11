@@ -14,6 +14,7 @@ use App\Services\DeviceService;
 use App\Services\KioskService;
 use App\Services\UserShiftService;
 use App\Support\AttendancePhotos;
+use App\Support\Settings;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -38,9 +39,6 @@ class Kiosk extends Component
 {
     use ReadsBrowserLocation;
     use TakesAttendancePhoto;
-
-    /** How long a verified worker has to press Clock In / Clock Out. */
-    public const VERIFIED_FOR_SECONDS = 120;
 
     public string $username = '';
 
@@ -219,11 +217,12 @@ class Kiosk extends Component
 
     /**
      * The verified worker, or null (back to step 1 with a message) when nobody was verified,
-     * the verification is older than two minutes, or the account is gone.
+     * the verification is older than the kiosk sign-in time in System Settings, or the account is gone.
      */
     private function verifiedUser(): ?User
     {
-        $fresh = $this->verifiedAt !== null && now()->getTimestamp() - $this->verifiedAt <= self::VERIFIED_FOR_SECONDS;
+        // How long a verified worker has to press Clock In / Clock Out (System Settings).
+        $fresh = $this->verifiedAt !== null && now()->getTimestamp() - $this->verifiedAt <= Settings::int('kiosk_verified_seconds');
         $user = $fresh ? $this->user : null;
 
         // Re-check on every action: the role may have been removed since the credentials were verified.
