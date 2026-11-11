@@ -4,11 +4,15 @@
     {{-- One row from tablet width up: the employee takes the free space, the two dates a fixed width. --}}
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="min-w-0 sm:max-w-sm sm:flex-1">
-            <flux:select wire:model.live="employee" :placeholder="__('Select employee')" :aria-label="__('Employee')" data-test="filter-employee">
-                @foreach ($this->users as $person)
-                    <flux:select.option :value="$person->id">{{ $person->listName() }} ({{ $person->employee_no }})</flux:select.option>
-                @endforeach
-            </flux:select>
+            <x-searchable-select
+                model="employee"
+                :value="$employee"
+                :options="$this->employeeOptions"
+                :placeholder="__('Select employee')"
+                :search-placeholder="__('Search name or employee no.')"
+                :label="__('Employee')"
+                data-test="filter-employee"
+            />
         </div>
         <div class="sm:w-44 sm:shrink-0">
             <flux:input type="date" wire:model.live="from" :aria-label="__('From')" data-test="filter-from" />

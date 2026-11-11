@@ -1,4 +1,4 @@
-{{-- Correct attendance modal (T-12), Admin only: set clock-out, change times, change project, split or void, with a reason. --}}
+{{-- Correct attendance modal (T-12), Admin only: set clock-out, change times, change project or void, with a reason. --}}
 <div>
     <flux:modal name="attendance-correction" class="w-full max-w-lg">
         @if ($attendance = $this->attendance)
@@ -48,17 +48,6 @@
                                 <flux:select.option :value="$project->id">{{ $project->code }} · {{ $project->name }}</flux:select.option>
                             @endforeach
                         </flux:select>
-                        @break
-
-                    @case (\App\Livewire\Attendance\Correction::SPLIT)
-                        <flux:input
-                            type="datetime-local"
-                            wire:model="split_at"
-                            :label="__('Split at')"
-                            :description="__('The attendance ends at this time; a second one runs from this time to the clock-out, on the same project and rate.')"
-                            :min="$attendance->clock_in_at->format('Y-m-d\TH:i')"
-                            :max="$attendance->clock_out_at?->format('Y-m-d\TH:i')"
-                        />
                         @break
 
                     @case (\App\Livewire\Attendance\Correction::VOID)
@@ -117,6 +106,7 @@
                             @include('livewire.attendance.partials.correction-version', ['attendance' => $step['before'], 'archived' => true, 'test' => 'original-'.$step['before']->id])
                         </div>
                         <div class="flex flex-col gap-2">
+                            {{-- Two records only for splits made before Split was removed. --}}
                             <p class="text-xs font-semibold uppercase tracking-wide text-brand-blue">{{ $step['after']->count() > 1 ? __('Corrected (split)') : __('Corrected') }}</p>
                             @foreach ($step['after'] as $version)
                                 @include('livewire.attendance.partials.correction-version', ['attendance' => $version, 'archived' => $version->trashed(), 'test' => 'corrected-'.$version->id])

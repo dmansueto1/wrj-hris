@@ -38,15 +38,12 @@ class Correction extends Component
 
     public const CHANGE_PROJECT = 'change_project';
 
-    public const SPLIT = 'split';
-
     public const VOID = 'void';
 
     public const ACTIONS = [
         self::SET_CLOCK_OUT => 'Set clock-out',
         self::CHANGE_TIMES => 'Change times',
         self::CHANGE_PROJECT => 'Change project',
-        self::SPLIT => 'Split',
         self::VOID => 'Void',
     ];
 
@@ -59,8 +56,6 @@ class Correction extends Component
     public string $clock_in = '';
 
     public string $clock_out = '';
-
-    public string $split_at = '';
 
     public string $project_id = '';
 
@@ -98,7 +93,6 @@ class Correction extends Component
         $this->action = $attendance->clock_out_at === null ? self::SET_CLOCK_OUT : self::CHANGE_TIMES;
         $this->clock_in = $attendance->clock_in_at->format(self::INPUT_FORMAT);
         $this->clock_out = $attendance->clock_out_at?->format(self::INPUT_FORMAT) ?? '';
-        $this->split_at = '';
         $this->project_id = (string) $attendance->project_id;
         $this->reason = '';
         $this->password = '';
@@ -126,13 +120,11 @@ class Correction extends Component
                 'action' => ['required', 'in:'.implode(',', array_keys($this->availableActions()))],
                 'clock_in' => [$this->action === self::CHANGE_TIMES ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
                 'clock_out' => [in_array($this->action, [self::SET_CLOCK_OUT, self::CHANGE_TIMES], true) ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
-                'split_at' => [$this->action === self::SPLIT ? 'required' : 'nullable', 'date_format:'.self::INPUT_FORMAT],
                 'project_id' => [$this->action === self::CHANGE_PROJECT ? 'required' : 'nullable', 'integer', Rule::exists('projects', 'id')->withoutTrashed()],
                 'reason' => ['required', 'string', 'min:'.AttendanceCorrectionService::MIN_REASON_LENGTH, 'max:'.AttendanceCorrectionService::MAX_REASON_LENGTH],
             ], [], [
                 'clock_in' => __('clock-in'),
                 'clock_out' => __('clock-out'),
-                'split_at' => __('split time'),
                 'project_id' => __('project'),
             ]);
 
@@ -145,7 +137,6 @@ class Correction extends Component
                 self::SET_CLOCK_OUT => $corrections->setClockOut($attendance, $this->time($this->clock_out), $reason, $admin),
                 self::CHANGE_TIMES => $corrections->changeTimes($attendance, $this->time($this->clock_in), $this->time($this->clock_out), $reason, $admin),
                 self::CHANGE_PROJECT => $corrections->changeProject($attendance, Project::query()->findOrFail((int) $this->project_id), $reason, $admin),
-                self::SPLIT => $corrections->split($attendance, $this->time($this->split_at), $reason, $admin),
                 self::VOID => $corrections->void($attendance, $reason, $admin),
             };
         } finally {
@@ -183,7 +174,7 @@ class Correction extends Component
 
     /**
      * The actions that fit the attendance: Set clock-out only without a clock-out; Change project
-     * and Split only with one.
+     * only with one.
      *
      * @return array<string, string>
      */
@@ -195,7 +186,7 @@ class Correction extends Component
             self::ACTIONS,
             fn (string $action) => match ($action) {
                 self::SET_CLOCK_OUT => ! $hasClockOut,
-                self::CHANGE_PROJECT, self::SPLIT => $hasClockOut,
+                self::CHANGE_PROJECT => $hasClockOut,
                 default => true,
             },
             ARRAY_FILTER_USE_KEY,

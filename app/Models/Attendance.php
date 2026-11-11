@@ -37,6 +37,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $adjusted_by
  * @property string|null $adjustment_reason
  * @property int|null $corrected_from_id
+ * @property bool $was_flagged
  * @property int|null $attendance_import_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -100,6 +101,7 @@ class Attendance extends Model
             'clock_out_at' => 'datetime',
             'hourly_rate' => 'decimal:2',
             'shift_windows' => 'array',
+            'was_flagged' => 'boolean',
             'minutes_worked' => 'integer',
             'clocked_minutes' => 'integer',
             'hours_worked' => 'decimal:2',
@@ -148,7 +150,7 @@ class Attendance extends Model
     }
 
     /**
-     * The record(s) a correction created from this one: one, or two after a split. Includes
+     * The record(s) a correction created from this one: one (two for a split made before Split was removed). Includes
      * records that were corrected again.
      *
      * @return HasMany<Attendance, $this>
@@ -179,6 +181,14 @@ class Attendance extends Model
     public function isCorrection(): bool
     {
         return $this->corrected_from_id !== null;
+    }
+
+    /**
+     * Created by correcting a flagged attendance (T-13), directly or through earlier corrections.
+     */
+    public function wasFlagged(): bool
+    {
+        return (bool) $this->was_flagged;
     }
 
     public function statusLabel(): string

@@ -75,21 +75,22 @@ class AttendanceCorrectionTest extends TestCase
         $this->assertSame('360.00', $projectB->laborTotal());
     }
 
-    public function testSplitAtNoon(): void
+    public function testSplitIsNoLongerOffered(): void
     {
         $this->signInAdmin();
         $attendance = Attendance::factory()->onDate('2026-10-21')->create(['clock_out_at' => '2026-10-21 17:00:00']);
 
         Livewire::test(Correction::class)
             ->call('open', $attendance->id)
-            ->set('action', Correction::SPLIT)
-            ->set('split_at', '2026-10-21T12:00')
+            ->assertDontSee('Split')
+            ->set('action', 'split')
             ->set('reason', 'Missed the lunch clock-out.')
             ->set('password', self::PASSWORD)
             ->call('save')
-            ->assertHasNoErrors();
+            ->assertHasErrors('action');
 
-        $this->assertSame([300, 300], Attendance::query()->orderBy('clock_in_at')->pluck('minutes_worked')->all());
+        $this->assertSame(1, Attendance::withTrashed()->count());
+        $this->assertFalse(method_exists(AttendanceCorrectionService::class, 'split'));
     }
 
     public function testVoidExcludesTheAttendance(): void

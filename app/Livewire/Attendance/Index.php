@@ -202,6 +202,22 @@ class Index extends Component
     }
 
     /**
+     * The employees as options for the searchable employee dropdowns: "Abad, Ana" with the
+     * employee number as the hint, so either can be searched.
+     *
+     * @return list<array{value: string, label: string, hint: string|null}>
+     */
+    #[Computed]
+    public function employeeOptions(): array
+    {
+        return $this->users->map(fn (User $person) => [
+            'value' => (string) $person->id,
+            'label' => $person->listName(),
+            'hint' => $person->employee_no,
+        ])->values()->all();
+    }
+
+    /**
      * Ongoing projects for the Daily attendance project filter, A–Z.
      *
      * @return Collection<int, Project>

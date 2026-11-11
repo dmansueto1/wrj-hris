@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  * shift, and it records who made the change and why. Like clock in/out, each call locks the
  * employee's row so it cannot race a clock-in.
  *
- * Validation errors use the correction form's field names: reason, clock_in, clock_out, split_at,
+ * Validation errors use the correction form's field names: reason, clock_in, clock_out,
  * project_id, and attendance for the record itself.
  */
 class AttendanceCorrectionService
@@ -72,37 +72,6 @@ class AttendanceCorrectionService
 
             return [$corrected];
         })[0];
-    }
-
-    /**
-     * Replace the attendance with two: one ending at $at and one from $at to the original
-     * clock-out, with the same project, rate and shift. The clock-in location and photo stay with
-     * the first, the clock-out ones go to the second.
-     *
-     * @return array{0: Attendance, 1: Attendance}
-     */
-    public function split(Attendance $a, Carbon $at, string $reason, User $admin): array
-    {
-        /** @var array{0: Attendance, 1: Attendance} */
-        return $this->correct($a, $reason, $admin, function (Attendance $original) use ($at) {
-            $at = $at->copy()->startOfMinute();
-
-            if ($original->clock_out_at === null) {
-                throw ValidationException::withMessages(['split_at' => __('Set the clock-out first.')]);
-            }
-
-            if ($at->lte($original->clock_in_at) || $at->gte($original->clock_out_at)) {
-                throw ValidationException::withMessages(['split_at' => __('The split time must be between the clock-in and the clock-out.')]);
-            }
-
-            $first = $this->copy($original, $original->clock_in_at, $at);
-            $first->forceFill(['clock_out_lat' => null, 'clock_out_lng' => null, 'clock_out_photo_path' => null]);
-
-            $second = $this->copy($original, $at, $original->clock_out_at);
-            $second->forceFill(['clock_in_lat' => null, 'clock_in_lng' => null, 'clock_in_photo_path' => null]);
-
-            return [$first, $second];
-        });
     }
 
     /**
@@ -202,6 +171,8 @@ class AttendanceCorrectionService
                     'corrected_from_id' => $original->id,
                     'adjusted_by' => $admin->id,
                     'adjustment_reason' => $reason,
+                    // Remembered through every later correction, for the "Flagged, corrected" remark.
+                    'was_flagged' => $original->status === Attendance::STATUS_FLAGGED || $original->wasFlagged(),
                 ])->save();
             }
 

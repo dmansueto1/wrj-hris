@@ -133,50 +133,6 @@ class AttendanceCorrectionServiceTest extends TestCase
         $this->assertSame($projectA->id, Attendance::withTrashed()->findOrFail($attendance->id)->project_id);
     }
 
-    public function testSplittingCreatesTwoAttendancesWithTheSameProjectAndRate(): void
-    {
-        $project = Project::factory()->ongoing()->create();
-        $attendance = Attendance::factory()->for($project)->onDate('2026-10-21')->create([
-            'clock_out_at' => '2026-10-21 17:00:00',
-            'clocked_minutes' => 600,
-            'minutes_worked' => 600,
-            'hours_worked' => '10.00',
-            'labor_cost' => '800.00',
-            'clock_in_photo_path' => 'attendance/in.jpg',
-            'clock_out_photo_path' => 'attendance/out.jpg',
-        ]);
-
-        [$first, $second] = $this->corrections->split($attendance, Carbon::parse('2026-10-21 12:00'), self::REASON, $this->admin);
-        $first->refresh();
-        $second->refresh();
-
-        $this->assertSame('2026-10-21 07:00', $first->clock_in_at->format('Y-m-d H:i'));
-        $this->assertSame('2026-10-21 12:00', $first->clock_out_at->format('Y-m-d H:i'));
-        $this->assertSame(300, $first->minutes_worked);
-        $this->assertSame('400.00', $first->labor_cost);
-        $this->assertSame('attendance/in.jpg', $first->clock_in_photo_path);
-        $this->assertNull($first->clock_out_photo_path);
-
-        $this->assertSame('2026-10-21 12:00', $second->clock_in_at->format('Y-m-d H:i'));
-        $this->assertSame('2026-10-21 17:00', $second->clock_out_at->format('Y-m-d H:i'));
-        $this->assertSame(300, $second->minutes_worked);
-        $this->assertSame('400.00', $second->labor_cost);
-        $this->assertNull($second->clock_in_photo_path);
-        $this->assertSame('attendance/out.jpg', $second->clock_out_photo_path);
-
-        foreach ([$first, $second] as $part) {
-            $this->assertSame($project->id, $part->project_id);
-            $this->assertSame($attendance->user_id, $part->user_id);
-            $this->assertSame('80.00', $part->hourly_rate);
-            $this->assertSame(Attendance::STATUS_ADJUSTED, $part->status);
-            $this->assertSame($this->admin->id, $part->adjusted_by);
-            $this->assertSame($attendance->id, $part->corrected_from_id);
-        }
-
-        $this->assertSoftDeleted($attendance);
-        $this->assertSame('800.00', $project->laborTotal());
-    }
-
     public function testVoidExcludesTheAttendanceFromTheLaborTotal(): void
     {
         $project = Project::factory()->ongoing()->create();
@@ -203,19 +159,19 @@ class AttendanceCorrectionServiceTest extends TestCase
     {
         $original = Attendance::factory()->onDate('2026-10-21')->create(['clock_out_at' => '2026-10-21 17:00:00']);
 
-        [, $afternoon] = $this->corrections->split($original, Carbon::parse('2026-10-21 12:00'), 'Missed the lunch clock-out.', $this->admin);
-        $final = $this->corrections->changeTimes($afternoon, Carbon::parse('2026-10-21 13:00'), Carbon::parse('2026-10-21 17:00'), 'Came back from lunch at 1 PM.', $this->admin);
+        $first = $this->corrections->changeTimes($original, Carbon::parse('2026-10-21 07:00'), Carbon::parse('2026-10-21 12:00'), 'Missed the lunch clock-out.', $this->admin);
+        $final = $this->corrections->changeTimes($first, Carbon::parse('2026-10-21 08:00'), Carbon::parse('2026-10-21 12:00'), 'Came in at 8 AM, not 7.', $this->admin);
 
         $history = $this->corrections->history($final);
 
         $this->assertCount(2, $history);
         $this->assertTrue($history[0]['before']->is($original));
-        $this->assertCount(2, $history[0]['after']);
+        $this->assertTrue($history[0]['after']->sole()->is($first));
         $this->assertSame('Missed the lunch clock-out.', $history[0]['reason']);
         $this->assertTrue($history[0]['by']->is($this->admin));
-        $this->assertTrue($history[1]['before']->is($afternoon));
+        $this->assertTrue($history[1]['before']->is($first));
         $this->assertTrue($history[1]['after']->sole()->is($final));
-        $this->assertSame('Came back from lunch at 1 PM.', $history[1]['reason']);
+        $this->assertSame('Came in at 8 AM, not 7.', $history[1]['reason']);
 
         $this->assertSame([], $this->corrections->history($original));
     }
@@ -343,23 +299,10 @@ class AttendanceCorrectionServiceTest extends TestCase
         $this->assertSame('360.00', $corrected->labor_cost);
     }
 
-    public function testTheSplitTimeMustBeInsideTheAttendance(): void
-    {
-        $attendance = Attendance::factory()->onDate('2026-10-21')->create();
-
-        $this->assertValidationError('split_at', fn () => $this->corrections->split(
-            $attendance, Carbon::parse('2026-10-21 11:30'), self::REASON, $this->admin,
-        ));
-        $this->assertSame(1, Attendance::withTrashed()->count());
-    }
-
-    public function testSplitAndChangeProjectNeedAClockOut(): void
+    public function testChangeProjectNeedsAClockOut(): void
     {
         $attendance = Attendance::factory()->onDate('2026-10-21')->flagged()->create();
 
-        $this->assertValidationError('split_at', fn () => $this->corrections->split(
-            $attendance, Carbon::parse('2026-10-21 09:00'), self::REASON, $this->admin,
-        ));
         $this->assertValidationError('project_id', fn () => $this->corrections->changeProject(
             $attendance, Project::factory()->ongoing()->create(), self::REASON, $this->admin,
         ));

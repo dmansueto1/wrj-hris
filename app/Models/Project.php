@@ -97,6 +97,32 @@ class Project extends Model
     }
 
     /**
+     * @return HasMany<ProjectMaterialEntry, $this>
+     */
+    public function materialEntries(): HasMany
+    {
+        return $this->hasMany(ProjectMaterialEntry::class);
+    }
+
+    /**
+     * Total cost of the project's material entries (archived entries left out), e.g. "3600.00".
+     */
+    public function materialsTotal(): string
+    {
+        $sum = $this->materialEntries()->sum('total_cost');
+
+        return Money::fromCentavos(Money::toCentavos((string) ($sum ?: '0')));
+    }
+
+    /**
+     * Running expenses (PRD 7.3): labor of counted attendance + materials, added in centavos.
+     */
+    public function runningExpenses(): string
+    {
+        return Money::fromCentavos(Money::toCentavos($this->laborTotal()) + Money::toCentavos($this->materialsTotal()));
+    }
+
+    /**
      * Projects workers can clock in to (PRD US-10).
      *
      * @param  Builder<Project>  $query

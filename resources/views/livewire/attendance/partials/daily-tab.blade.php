@@ -10,21 +10,25 @@
 {{-- Filters --}}
 <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <flux:input class="sm:w-44" type="date" wire:model.live="date" :aria-label="__('Date')" data-test="filter-date" />
+        <flux:input class="sm:w-44 sm:shrink-0" type="date" wire:model.live="date" :aria-label="__('Date')" data-test="filter-date" />
 
-        <flux:select wire:model.live="user" :aria-label="__('Filter by employee')" data-test="filter-user">
-            <flux:select.option value="">{{ __('All employees') }}</flux:select.option>
-            @foreach ($this->users as $person)
-                <flux:select.option :value="$person->id">{{ $person->listName() }} ({{ $person->employee_no }})</flux:select.option>
-            @endforeach
-        </flux:select>
-        <flux:select wire:model.live="project" :aria-label="__('Filter by project')" data-test="filter-project">
+        <x-searchable-select
+            model="user"
+            :value="$user"
+            :options="$this->employeeOptions"
+            :empty-label="__('All employees')"
+            :search-placeholder="__('Search name or employee no.')"
+            :label="__('Filter by employee')"
+            class="sm:min-w-0 sm:flex-[2]"
+            data-test="filter-user"
+        />
+        <flux:select class="sm:min-w-0 sm:flex-1" wire:model.live="project" :aria-label="__('Filter by project')" data-test="filter-project">
             <flux:select.option value="">{{ __('All projects') }}</flux:select.option>
             @foreach ($this->projects as $proj)
                 <flux:select.option :value="$proj->id">{{ $proj->code }} · {{ $proj->name }}</flux:select.option>
             @endforeach
         </flux:select>
-        <flux:select wire:model.live="sortBy" :aria-label="__('Sort by')" data-test="filter-sort-by">
+        <flux:select class="sm:min-w-0 sm:flex-1" wire:model.live="sortBy" :aria-label="__('Sort by')" data-test="filter-sort-by">
             <flux:select.option value="name">{{ __('Sort by Name') }}</flux:select.option>
             <flux:select.option value="project">{{ __('Sort by Project') }}</flux:select.option>
             <flux:select.option value="worked_time">{{ __('Sort by Worked time') }}</flux:select.option>

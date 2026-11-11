@@ -134,4 +134,72 @@ document.addEventListener('alpine:init', () => {
             this.$flux.modal(modalName).close();
         },
     }));
+
+    /**
+     * searchableSelect: a dropdown with a search box (<x-searchable-select>), for long lists such
+     * as employees. Reads and sets the Livewire property `model`; type to filter by label or hint,
+     * arrow keys to move, Enter to pick, Escape to close.
+     */
+    window.Alpine.data('searchableSelect', (model, options) => ({
+        open: false,
+        search: '',
+        active: 0,
+
+        get selected() {
+            return String(this.$wire.$get(model) ?? '');
+        },
+
+        get selectedLabel() {
+            return options.find((option) => option.value === this.selected)?.label ?? '';
+        },
+
+        get filtered() {
+            const terms = this.search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+
+            return options.filter((option) => {
+                const text = (option.label + ' ' + (option.hint ?? '')).toLowerCase();
+
+                return terms.every((term) => text.includes(term));
+            });
+        },
+
+        toggle() {
+            this.open ? this.close() : this.show();
+        },
+
+        show() {
+            this.open = true;
+            this.search = '';
+            this.active = Math.max(0, this.filtered.findIndex((option) => option.value === this.selected));
+            this.$nextTick(() => this.$refs.search.focus());
+        },
+
+        close() {
+            this.open = false;
+        },
+
+        move(step) {
+            const count = this.filtered.length;
+
+            if (count === 0) {
+                return;
+            }
+
+            this.active = (this.active + step + count) % count;
+            this.$nextTick(() => this.$refs.list.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' }));
+        },
+
+        choose(option) {
+            if (! option) {
+                return;
+            }
+
+            if (option.value !== this.selected) {
+                this.$wire.$set(model, option.value);
+            }
+
+            this.close();
+            this.$refs.button.focus();
+        },
+    }));
 });

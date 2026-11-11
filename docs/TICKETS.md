@@ -75,6 +75,7 @@ When finished, list every file you created or changed.
 | T-12 | Attendance corrections | Attendance | T-11, T-11.3 |
 | T-13 | Flag forgotten clock-outs | Attendance | T-09, T-10, T-10.1 |
 | T-14 | Material cost and entries table | Materials & Expenses | T-07, T-08 |
+| T-14.1 | System settings page | Additional | T-14, T-13, T-11.1, T-10.2, T-10.1, T-04 |
 | T-15 | Material entry screen | Materials & Expenses | T-14 |
 | T-16 | Project running expenses page | Materials & Expenses | T-10, T-15 |
 | T-17 | Audit log | Audit, Reports & Release | T-12, T-15 |
@@ -1205,6 +1206,131 @@ The last three tickets make every sensitive change traceable, give the client ex
 **Verify:** log in as Admin → Admin → Roles & Permissions; tick "Manage materials" for Worker and save; log in as a worker in another browser and see Materials in the menu; untick, save, refresh and confirm it is gone; check a phone width of 375 px.
 
 #### Definition of done
+
+- [ ] All acceptance criteria met
+- [ ] All listed tests written and passing; full suite passes with `php artisan test`
+- [ ] Screens work at phone width (375 px) and desktop width
+- [ ] No errors in the browser console or `storage/logs/laravel.log`
+- [ ] Code formatted with `./vendor/bin/pint`
+
+### T-14.1 – System settings page
+
+**Goal:** an Admin opens Admin → System Settings and changes every system value on one page (photo and approved-device rules, markup rate, flag time, kiosk sign-in time, idle logout, login lockout, device clean-up); nothing is set in `.env` or fixed in code any more.
+
+**Depends on:** T-14 (the `settings` table and `App\Support\Settings::get()`), T-13, T-11.1, T-10.2, T-10.1, T-04
+
+**Current implementation**
+
+- T-14 adds the `settings` table (`key` string primary, `value` string), `App\Support\Settings::get(string $key, ?string $default = null)` and the row `material_markup_rate = 0.20`; `ProjectMaterialEntry` copies the rate on `saving`. There is no screen for it.
+- `config/attendance.php` reads two values from `.env`. Neither key is in `.env.example`. `phpunit.xml` lines 24–25 set both to `false` for tests:
+  - `require_photo` = `env('ATTENDANCE_REQUIRE_PHOTO', true)`, read only through `App\Support\AttendancePhotos::required()` (T-10.2)
+  - `require_approved_device` = `env('ATTENDANCE_REQUIRE_APPROVED_DEVICE', true)`, read only through `App\Services\DeviceService::required()` (T-11.1)
+- Values fixed in code:
+  - `App\Services\AttendanceService::FLAG_AFTER_HOURS = 12`, used by `flagOpen()` (T-13). The text "more than 12 hours" appears in `resources/views/livewire/attendance/partials/needs-correction.blade.php` and in the `attendance:flag-open` purpose in `routes/console.php`.
+  - `App\Livewire\Attendance\Kiosk::VERIFIED_FOR_SECONDS = 120`, used by `verifiedUser()` (T-10.1).
+  - `App\Http\Middleware\AdminStaffIdleTimeout::IDLE_MINUTES = 30`, used for the check and the "logged out after :minutes minutes" message (T-04).
+  - `App\Support\Auth\LoginRateLimiter::MAX_ATTEMPTS = 5` and `LOCK_SECONDS = 15 * 60` (T-04). The kiosk (`App\Services\KioskService`) uses the same limiter, and `App\Http\Responses\LockoutResponse` already shows the minutes left from `availableIn()`.
+  - `App\Services\DeviceService::prunePending()` archives pending device requests with `last_seen_at` older than `now()->subDays(30)`, run daily by `devices:prune-pending` (T-11.1).
+- Tests switch the two `.env` values with `config([...])`: `tests/Unit/AttendancePhotosTest.php`, `tests/Feature/Attendance/AttendancePhotoTest.php` and `tests/Feature/Devices/DeviceAccessTest.php`.
+- `/settings` is already taken: `routes/settings.php` redirects it to the user's own `/settings/profile` and `/settings/security`. The new page needs its own URL.
+- Permissions are in `RolesAndPermissionsSeeder::ROLE_PERMISSIONS`; the Admin menu items are in `App\Support\Navigation::items()`. Users and Devices are under Admin, and Users uses `'middleware' => ['password.confirm']`.
+- The app is not deployed yet, so no existing `.env` values need to be copied: the `.env` keys and `config/attendance.php` are removed.
+- Not settings (kept in code on purpose): the per-save password limit in `App\Livewire\Concerns\ConfirmsPassword` (5 a minute) and `DeviceService::REQUESTS_PER_HOUR`. These are abuse limits, not business rules.
+
+**Build**
+
+- `App\Support\SettingsCatalog` (definitions only, no logic). Each setting has `key`, `label`, a one-line `description` in simple English, `group`, `type` (`bool` | `int` | `percent`), `default` (stored string), `min` and `max` (for `int` and `percent`) and `unit` ("hours", "seconds", "minutes", "days", "%", "wrong passwords"). In display order:
+  - **Attendance**
+    - `attendance_require_photo`: bool, default `1`, "Require a photo on clock in and out". The text says the photo is taken on /clock and the kiosk.
+    - `attendance_require_approved_device`: bool, default `1`, "Allow clock in and out only on approved devices"
+    - `attendance_flag_after_hours`: int, default `12`, 1–24 hours, "Flag attendance not clocked out after"
+    - `kiosk_verified_seconds`: int, default `120`, 30–600 seconds, "Time to press Clock In or Clock Out after signing in at the kiosk"
+  - **Materials**
+    - `material_markup_rate`: percent, default `0.20`, 0–100 %, "Markup on material purchases". The text says it applies to new entries only.
+  - **Security**
+    - `idle_logout_minutes`: int, default `30`, 5–120 minutes, "Log out Admin and Staff after this much inactivity"
+    - `login_max_attempts`: int, default `5`, 3–10 wrong passwords, "Lock an account after"
+    - `login_lockout_minutes`: int, default `15`, 5–60 minutes, "Lock for"
+  - **Devices**
+    - `device_prune_pending_days`: int, default `30`, 7–365 days, "Archive device requests not seen for"
+  - `SettingsCatalog::all()` returns the settings grouped; `SettingsCatalog::find(string $key)` returns one or null.
+- Extend `App\Support\Settings` (from T-14):
+  - `get()` falls back to the catalog default when there is no row (when `$default` is null), so a fresh database works with no seeding.
+  - Add typed readers: `bool(string $key): bool` (`'1'` → true), `int(string $key): int` and `string(string $key): string`.
+  - All rows are read once and cached: `Cache::rememberForever('settings', …)`, plus a static copy for the request.
+  - `set(string $key, string $value): void` does an upsert and forgets the cache.
+  - `fake(array $values): void` and `clearFake(): void` are an in-memory override for tests; `set()` drops the override for that key.
+- Percent conversion in `App\Support\Settings` with integers only, no floats. A percent with up to 2 decimals in hundredths of a percent equals the rate in ten-thousandths:
+  - `Settings::percentToRate(string $percent): string`: "20" → "0.2000", "12.5" → "0.1250", "0.25" → "0.0025", "0" → "0.0000", "100" → "1.0000"
+  - `Settings::rateToPercent(string $rate): string`: "0.20" → "20", "0.1250" → "12.5", "0.0025" → "0.25", "1.0000" → "100" (trailing zeros dropped)
+- `App\Services\SystemSettingsService`:
+  - `values(): array<string, string>` returns every catalog key with its current value; percent values are shown as percent strings.
+  - `update(array $input, User $admin): void`
+    - Checks `$admin->can('settings.manage')` (403) and validates against the catalog: bool is `boolean`; int is `integer|between:min,max`; percent is `regex:/^\d{1,3}(\.\d{1,2})?$/` plus `0–100`. Unknown keys fail with a `ValidationException` (keys `values.<key>`).
+    - Inside `DB::transaction()` it saves only the keys whose value changed (percent through `percentToRate()`).
+    - It writes one activity per save that changed something: `activity('settings')->causedBy($admin)->withProperties(['old' => [...changed keys], 'new' => [...]])->log('Changed settings')` (PRD 8 audit).
+  - `restoreDefaults(User $admin): void` sends every catalog default through `update()`.
+- Point every reader at the settings and remove the old sources:
+  - `AttendancePhotos::required()` → `Settings::bool('attendance_require_photo')`
+  - `DeviceService::required()` → `Settings::bool('attendance_require_approved_device')`
+  - `AttendanceService::flagOpen()` → `now()->subHours(Settings::int('attendance_flag_after_hours'))`. Remove `FLAG_AFTER_HOURS`. In `needs-correction.blade.php`, say "more than :hours hours" with the setting. Change the command purpose to "Flag attendance records still Clocked In past the flag time in System Settings".
+  - `Kiosk::verifiedUser()` → `Settings::int('kiosk_verified_seconds')`. Remove `VERIFIED_FOR_SECONDS`.
+  - `AdminStaffIdleTimeout` → `Settings::int('idle_logout_minutes')` for the check and the message. Remove `IDLE_MINUTES`.
+  - `LoginRateLimiter` → `Settings::int('login_max_attempts')` and `Settings::int('login_lockout_minutes') * 60`. Remove `MAX_ATTEMPTS` and `LOCK_SECONDS`. The login page and the kiosk follow automatically.
+  - `DeviceService::prunePending()` → `now()->subDays(Settings::int('device_prune_pending_days'))`. Change the command purpose to "…not seen for the days set in System Settings".
+  - Delete `config/attendance.php`; remove `ATTENDANCE_REQUIRE_PHOTO` and `ATTENDANCE_REQUIRE_APPROVED_DEVICE` from `phpunit.xml`. Update comments that mention `.env` or "a Settings screen can take over later".
+  - `Tests\TestCase::setUp()` calls `Settings::fake(['attendance_require_photo' => '0', 'attendance_require_approved_device' => '0'])`, keeping today's test defaults. Replace the `config(['attendance.…' => …])` calls in the three test files with `Settings::fake([...])`.
+- New permission `settings.manage`, Admin only: add it to `RolesAndPermissionsSeeder::ROLE_PERMISSIONS['admin']`, and update the tests that list every permission (`RolesAndPermissionsTest`).
+- Livewire `App\Livewire\SystemSettings\Index` (class in `app/Livewire/SystemSettings/Index.php`, view in `resources/views/livewire/system-settings/index.blade.php`), `#[Title('System Settings')]`:
+  - `boot()`: `abort_unless(Auth::user()?->can('settings.manage'), 403)`. `save()` and `restoreDefaults()` call the service, which checks again.
+  - `public array $values` (key → string) is loaded from `values()`. `#[Computed] hasChanges` compares it with the saved values.
+  - `save()` calls `update()`, reloads `$values` and shows the toast "Settings saved. They apply to new actions from now on." `discard()` reloads the saved values.
+- Menu and route: add to `Navigation::items()` after Devices and before Reports: `['label' => 'System Settings', 'url' => 'system-settings', 'route' => 'system-settings.index', 'group' => 'Admin', 'icon' => 'cog-6-tooth', 'permissions' => ['settings.manage'], 'component' => SystemSettings\Index::class, 'middleware' => ['password.confirm']]`. The loop in `routes/web.php` registers it. Update `NavigationTest` and `RouteAuthorizationTest`.
+- Page design (light theme, brand tokens only):
+  - `<x-page-header>` "System Settings", with the description "Rules for attendance, materials, sign-in and devices. Changes apply to new actions only."
+  - Header actions: "Restore defaults" (secondary; confirm with a `flux:modal` saying "Set every setting back to its default?") and "Save changes" (`btn-accent`, disabled until `hasChanges`).
+  - One `<x-data-card>` per group (Attendance, Materials, Security, Devices) with a small uppercase heading. Each setting is one row: the label in bold, the description in `text-zinc-500`, and the default as "Default: 12 hours".
+    - bool: a `flux:switch`
+    - int and percent: a `flux:input type="number"` (`step="1"` or `step="0.01"`) with the unit after it and `flux:error` under it
+  - Rows stack on phones: the text, then the control at full width.
+  - While `hasChanges`, a sticky bar at the bottom shows "You have unsaved changes" with "Discard" and "Save changes".
+  - This is a fixed form, not a table, so it is not paginated.
+
+**Acceptance criteria**
+
+- [ ] Admin sees "System Settings" under Admin in the sidebar. Staff and Worker do not, and get 403 on `/system-settings`. Admin is asked for their password first, as on Users.
+- [ ] On a fresh database, every setting shows its default: photo on, approved device on, 12 hours, 120 seconds, 20 %, 30 minutes, 5 wrong passwords, 15 minutes, 30 days.
+- [ ] Turning "Require a photo" off and saving lets `/clock` clock in without a photo; turning it on asks for one again. The same goes for "approved devices only" and the Request access screen.
+- [ ] Markup changed from 20 to 25 %: a new material entry stores `markup_rate` 0.2500, and an entry saved earlier at 0.20 still totals ₱3,600.00.
+- [ ] Flag time set to 8 hours: an attendance open 9 hours is flagged by `attendance:flag-open`, and one open 7 hours is not.
+- [ ] Lockout set to 3 attempts for 10 minutes: the 3rd wrong password locks the login, and the message says 10 minutes.
+- [ ] Out-of-range values (0 hours, 25 hours, 101 %, 12.345 %, "abc") are rejected with a message under the field, and nothing is saved.
+- [ ] Each save that changes something writes one `activity_log` row (log `settings`, causer the Admin) with only the changed keys in `old` and `new`.
+- [ ] `config/attendance.php` is gone, and `.env` has no setting the app reads for these rules.
+
+**Tests**
+
+- Unit (data provider): `Settings::percentToRate` "20" → "0.2000", "12.5" → "0.1250", "0.25" → "0.0025", "0" → "0.0000", "100" → "1.0000"; `Settings::rateToPercent` "0.20" → "20", "0.1250" → "12.5", "0.0025" → "0.25", "1.0000" → "100".
+- Unit: every `SettingsCatalog` entry has a label, description, group, type and a default inside its min–max. Keys are unique.
+- Unit: `AttendancePhotos::required()` follows `Settings::fake()` (rewrite of `AttendancePhotosTest`).
+- Feature (data provider): `/system-settings` gives admin 200 after password confirmation, staff 403 and worker 403; a guest is sent to login.
+- Feature: a fresh database returns the catalog defaults from `Settings::get()` and the typed readers with no rows. `set()` then `get()` returns the new value, also after the cache is cleared.
+- Feature: Livewire — change `values.attendance_flag_after_hours` to 8 and `save()` → `Settings::int()` returns 8. Travel 9 hours and run `attendance:flag-open` → flagged; another attendance open 7 hours stays open.
+- Feature: markup 25 % saved as `0.2500`; the old entry keeps ₱3,600.00 (30.00 × 100 at 0.20); a new entry of 30.00 × 100 totals ₱3,750.00.
+- Feature: kiosk sign-in time set to 60 seconds — travel 61 seconds after verify, and Clock In sends the worker back to step 1.
+- Feature: idle logout set to 10 minutes — an Admin idle for 11 minutes is logged out, and the message says 10 minutes. A Worker is not logged out.
+- Feature: lockout set to 3 attempts for 10 minutes — the login is locked after the 3rd wrong password with "10 minutes", and the kiosk shares the lock.
+- Feature: device clean-up set to 7 days — a pending request last seen 8 days ago is archived by `devices:prune-pending`, and one seen 6 days ago is not.
+- Feature: validation (data provider) — 0 and 25 hours, 29 and 601 seconds, -1, 101 and 12.345 %, 2 and 11 attempts, "abc", and an unknown key are each rejected, and no setting changes.
+- Feature: one save changing two settings writes one `activity_log` row with `causer_id` = the admin and those two keys in `old` and `new`. A save with no change writes none.
+- Feature: `restoreDefaults()` puts every setting back to its catalog default.
+- Feature: "Save changes" is disabled with no changes and enabled after a change, and `discard()` restores the saved values.
+- Feature: a staff user calling the component's `save()` or the service's `update()` directly gets 403.
+- Update the existing tests: `AttendancePhotoTest` and `DeviceAccessTest` use `Settings::fake()`; tests that used `IDLE_MINUTES`, `VERIFIED_FOR_SECONDS`, `MAX_ATTEMPTS` or `FLAG_AFTER_HOURS` use the default values (30, 120, 5, 12). Keep their expected values the same.
+
+**Verify:** log in as Admin → Admin → System Settings. Confirm your password, turn "Require a photo" off and save. Clock in on `/clock` without a photo. Change the markup to 25 % and record a material entry. Type 25 in the flag hours and see the error. Check the Activity log row. Check a phone width of 375 px.
+
+## Definition of done
 
 - [ ] All acceptance criteria met
 - [ ] All listed tests written and passing; full suite passes with `php artisan test`
