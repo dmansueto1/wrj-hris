@@ -23,16 +23,16 @@ class Navigation
     public static function items(): array
     {
         return [
-            ['label' => 'Clock In/Out', 'url' => 'clock', 'route' => 'clock', 'group' => 'Time', 'icon' => 'clock', 'permissions' => ['attendance.clock'], 'component' => Attendance\Clock::class],
-            ['label' => 'My Attendance', 'url' => 'attendance/mine', 'route' => 'attendance.mine', 'group' => 'Time', 'icon' => 'calendar-days', 'permissions' => ['attendance.view-own'], 'component' => Attendance\Mine::class],
-            ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'group' => 'Time', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all'], 'component' => Attendance\Index::class],
+            ['label' => 'Clock In/Out', 'url' => 'clock', 'route' => 'clock', 'group' => 'Attendance', 'icon' => 'clock', 'permissions' => ['attendance.clock'], 'component' => Attendance\Clock::class],
+            ['label' => 'My Attendance', 'url' => 'attendance/mine', 'route' => 'attendance.mine', 'group' => 'Attendance', 'icon' => 'calendar-days', 'permissions' => ['attendance.view-own'], 'component' => Attendance\Mine::class],
+            ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'group' => 'Attendance', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all'], 'component' => Attendance\Index::class],
             ['label' => 'Projects', 'url' => 'projects', 'route' => 'projects.index', 'group' => 'Operations', 'icon' => 'building-office-2', 'permissions' => ['expenses.view', 'projects.manage'], 'component' => Projects\Index::class],
             ['label' => 'Material Entries', 'url' => 'material-entries', 'route' => 'material-entries.index', 'group' => 'Operations', 'icon' => 'shopping-cart', 'permissions' => ['material-entries.create']],
             ['label' => 'Materials', 'url' => 'materials', 'route' => 'materials.index', 'group' => 'Operations', 'icon' => 'cube', 'permissions' => ['materials.manage'], 'component' => Materials\Index::class],
-            ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'group' => 'Admin', 'icon' => 'users', 'permissions' => ['users.manage'], 'component' => Users\Index::class, 'middleware' => ['password.confirm']],
-            ['label' => 'Devices', 'url' => 'devices', 'route' => 'devices.index', 'group' => 'Admin', 'icon' => 'device-tablet', 'permissions' => ['devices.manage'], 'component' => Devices\Index::class],
-            ['label' => 'System Settings', 'url' => 'system-settings', 'route' => 'system-settings.index', 'group' => 'Admin', 'icon' => 'cog-6-tooth', 'permissions' => ['settings.manage'], 'component' => SystemSettings\Index::class, 'middleware' => ['password.confirm']],
-            ['label' => 'Reports', 'url' => 'reports', 'route' => 'reports.index', 'group' => 'Admin', 'icon' => 'document-chart-bar', 'permissions' => ['reports.export']],
+            ['label' => 'Users', 'url' => 'users', 'route' => 'users.index', 'group' => 'Administration', 'icon' => 'users', 'permissions' => ['users.manage'], 'component' => Users\Index::class, 'middleware' => ['password.confirm']],
+            ['label' => 'Devices', 'url' => 'devices', 'route' => 'devices.index', 'group' => 'Administration', 'icon' => 'device-tablet', 'permissions' => ['devices.manage'], 'component' => Devices\Index::class],
+            ['label' => 'System Settings', 'url' => 'system-settings', 'route' => 'system-settings.index', 'group' => 'Administration', 'icon' => 'cog-6-tooth', 'permissions' => ['settings.manage'], 'component' => SystemSettings\Index::class, 'middleware' => ['password.confirm']],
+            ['label' => 'Reports', 'url' => 'reports', 'route' => 'reports.index', 'group' => 'Administration', 'icon' => 'document-chart-bar', 'permissions' => ['reports.export']],
         ];
     }
 
