@@ -3,6 +3,7 @@
 use App\Http\Controllers\AttendancePhotoController;
 use App\Livewire\Attendance;
 use App\Livewire\Auth\ChangePassword;
+use App\Livewire\MaterialEntries;
 use App\Livewire\Materials;
 use App\Livewire\Projects;
 use App\Livewire\Users;
@@ -54,6 +55,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(Navigation::middlewareFor('materials.index'))->group(function () {
         Route::livewire('materials/create', Materials\Create::class)->name('materials.create');
         Route::livewire('materials/{material}/edit', Materials\Edit::class)->name('materials.edit');
+    });
+
+    // Material entries (T-15): record and edit purchases, same protection as the list.
+    // Who may change a given entry (Admin any, Staff own entries made today) is checked by the component.
+    Route::middleware(Navigation::middlewareFor('material-entries.index'))->group(function () {
+        Route::livewire('material-entries/create', MaterialEntries\Create::class)->name('material-entries.create');
+        Route::livewire('material-entries/{materialEntry}/edit', MaterialEntries\Edit::class)->name('material-entries.edit');
     });
 
     // Users masterfile (T-06): add and edit screens, same protection as the list.
