@@ -7,13 +7,6 @@
         </x-slot:actions>
     </x-page-header>
 
-    {{-- Stat cards --}}
-    <div class="grid gap-4 sm:grid-cols-3">
-        <x-stat-card icon="cube" color="blue" :label="__('Total materials')" :value="number_format($this->summary['total'])" :note="__('Archived materials not counted')" />
-        <x-stat-card icon="check-badge" color="green" :label="__('Active')" :value="number_format($this->summary['active'])" :note="__('Can be picked for new entries')" />
-        <x-stat-card icon="no-symbol" color="zinc" :label="__('Inactive')" :value="number_format($this->summary['inactive'])" :note="__('Hidden from new entries')" />
-    </div>
-
     {{-- Filter toolbar --}}
     <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
         <div class="grid gap-3 md:grid-cols-[1fr_12rem]">

@@ -10,13 +10,6 @@
         </x-slot:actions>
     </x-page-header>
 
-    {{-- Stat cards (everything matching the filters) --}}
-    <div class="grid gap-4 sm:grid-cols-3">
-        <x-stat-card icon="shopping-cart" color="blue" :label="__('Entries')" :value="number_format($this->totals['count'])" :note="$hasFilters ? __('Matching the filters') : __('All material purchases')" />
-        <x-stat-card icon="receipt-percent" color="amber" :label="__('Markup')" :value="$money($this->totals['markup'])" :note="__('Added on top of the subtotal')" />
-        <x-stat-card icon="banknotes" color="green" :label="__('Total cost')" :value="$money($this->totals['total'])" :note="__('Subtotal plus markup')" />
-    </div>
-
     {{-- Filter toolbar --}}
     <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -21,7 +21,6 @@ use Livewire\Component;
  * Clock In/Out. Admin only.
  *
  * @property-read LengthAwarePaginator<int, Device> $devices
- * @property-read array{pending: int, approved: int, blocked: int} $summary
  */
 #[Title('Devices')]
 class Index extends Component
@@ -109,21 +108,6 @@ class Index extends Component
     }
 
     /**
-     * @return array{pending: int, approved: int, blocked: int}
-     */
-    #[Computed]
-    public function summary(): array
-    {
-        $counts = Device::query()->toBase()->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
-
-        return [
-            'pending' => (int) ($counts[Device::STATUS_PENDING] ?? 0),
-            'approved' => (int) ($counts[Device::STATUS_APPROVED] ?? 0),
-            'blocked' => (int) ($counts[Device::STATUS_BLOCKED] ?? 0),
-        ];
-    }
-
-    /**
      * Pending requests first, then the most recently seen.
      *
      * @return LengthAwarePaginator<int, Device>
@@ -168,7 +152,7 @@ class Index extends Component
 
     private function refreshList(string $message): void
     {
-        unset($this->devices, $this->summary);
+        unset($this->devices);
         Flux::toast(variant: 'success', text: $message);
     }
 

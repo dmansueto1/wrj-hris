@@ -76,16 +76,6 @@ class MaterialsIndexTest extends TestCase
             ->assertSee('HB-04');
     }
 
-    public function testTheStatCardsCountMaterials(): void
-    {
-        $this->actingAs(User::factory()->staff()->create());
-        Material::factory()->count(2)->create();
-        Material::factory()->inactive()->create();
-        Material::factory()->create()->delete();
-
-        Livewire::test(Index::class)->assertSet('summary', ['total' => 3, 'active' => 2, 'inactive' => 1]);
-    }
-
     public function testDeactivateReactivateAndArchiveFromTheList(): void
     {
         $this->actingAs(User::factory()->staff()->create());

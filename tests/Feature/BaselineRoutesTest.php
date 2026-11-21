@@ -20,10 +20,10 @@ class BaselineRoutesTest extends TestCase
         $this->get('/')->assertRedirect(route('login'));
     }
 
-    public function testSignedInUsersVisitingTheHomePageAreRedirectedToClock(): void
+    public function testSignedInUsersVisitingTheHomePageAreRedirectedToTheDashboard(): void
     {
         $this->actingAs(User::factory()->create());
 
-        $this->get('/')->assertRedirect('/clock');
+        $this->get('/')->assertRedirect('/dashboard');
     }
 }

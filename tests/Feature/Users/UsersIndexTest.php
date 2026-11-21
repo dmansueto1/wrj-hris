@@ -114,22 +114,6 @@ class UsersIndexTest extends TestCase
         Livewire::test(Index::class)->assertForbidden();
     }
 
-    public function testTheStatCardsCountUsersByStatusAndRole(): void
-    {
-        $this->actingAs(User::factory()->admin()->create());
-        User::factory()->worker()->count(3)->create();
-        User::factory()->worker()->inactive()->create();
-        User::factory()->staff()->create();
-        User::factory()->worker()->create()->delete();
-
-        Livewire::test(Index::class)->assertSet('summary', [
-            'total' => 6,
-            'active' => 5,
-            'inactive' => 1,
-            'roles' => ['admin' => 1, 'staff' => 1, 'worker' => 4],
-        ]);
-    }
-
     public function testActiveFiltersShowAsChipsAndCanBeCleared(): void
     {
         $this->actingAs(User::factory()->admin()->create());

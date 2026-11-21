@@ -9,14 +9,6 @@
         @endif
     </x-page-header>
 
-    {{-- Stat cards --}}
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <x-stat-card icon="building-office-2" color="blue" :label="__('Total projects')" :value="number_format($this->summary['total'])" :note="__(':count in planning', ['count' => $this->summary['statuses']['planning']])" />
-        <x-stat-card icon="bolt" color="green" :label="__('Ongoing')" :value="number_format($this->summary['statuses']['ongoing'])" :note="__('Open for clock-in')" />
-        <x-stat-card icon="pause-circle" color="amber" :label="__('On hold')" :value="number_format($this->summary['statuses']['on_hold'])" :note="__('Clock-in closed')" />
-        <x-stat-card icon="check-circle" color="indigo" :label="__('Completed')" :value="number_format($this->summary['statuses']['completed'])" :note="__('Finished projects')" />
-    </div>
-
     {{-- Filter toolbar with view toggle --}}
     <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
         <div class="grid gap-3 md:grid-cols-[1fr_12rem_auto]">

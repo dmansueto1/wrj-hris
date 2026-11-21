@@ -33,11 +33,12 @@ class ClockScreenTest extends TestCase
             ->assertDontSeeHtml('data-test="clock-out-button"');
     }
 
-    public function testTheClockPageIsTheHomePageForEveryone(): void
+    public function testTheHomePageIsTheDashboardAndTheClockPageStillOpens(): void
     {
         $this->actingAs(User::factory()->worker()->create());
 
-        $this->get('/')->assertRedirect(route('clock'));
+        // T-15.1: the Dashboard is the home page; it links to Clock In/Out.
+        $this->get('/')->assertRedirect(route('dashboard'));
         $this->get(route('clock'))->assertOk()->assertSee('Clock In');
     }
 

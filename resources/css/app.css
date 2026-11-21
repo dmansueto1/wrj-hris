@@ -77,6 +77,35 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
     }
+
+    /* Every clickable control shows the hand cursor (Tailwind v4 resets buttons to the arrow). In the
+       base layer, so a utility such as Flux's disabled:cursor-default still wins. */
+    button,
+    [role="button"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"]::file-selector-button,
+    select,
+    summary,
+    label[for],
+    ui-checkbox,
+    ui-radio,
+    ui-switch,
+    ui-select,
+    [data-flux-menu-item] {
+        cursor: pointer;
+    }
+
+    button:disabled,
+    [role="button"][aria-disabled="true"],
+    [aria-disabled="true"],
+    input:disabled,
+    select:disabled {
+        cursor: not-allowed;
+    }
 }
 
 [data-flux-field]:not(ui-radio, ui-checkbox) {

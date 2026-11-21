@@ -42,6 +42,7 @@ class RolesAndPermissionsTest extends TestCase
                 'reports.export',
                 'devices.manage',
                 'settings.manage',
+                'dashboard.overview',
             ]],
             'staff' => ['staff', [
                 'attendance.clock',
@@ -75,9 +76,9 @@ class RolesAndPermissionsTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
 
         $this->assertSame(3, Role::count());
-        // PRD section 3's 10 permissions plus devices.manage (T-11.1) and settings.manage (T-14.1), Admin only.
-        $this->assertSame(12, Permission::count());
-        $this->assertSame(21, DB::table('role_has_permissions')->count());
+        // PRD section 3's 10 permissions plus devices.manage (T-11.1), settings.manage (T-14.1) and dashboard.overview (T-15.1), Admin only.
+        $this->assertSame(13, Permission::count());
+        $this->assertSame(22, DB::table('role_has_permissions')->count());
     }
 
     public function testDatabaseSeederCreatesTheThreeRoles(): void

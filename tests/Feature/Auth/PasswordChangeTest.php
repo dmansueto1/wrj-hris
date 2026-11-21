@@ -46,7 +46,7 @@ class PasswordChangeTest extends TestCase
             ->set('password_confirmation', 'Str0ng!Passw0rd')
             ->call('changePassword')
             ->assertHasNoErrors()
-            ->assertRedirect(route('clock'));
+            ->assertRedirect(route('dashboard'));
 
         $user->refresh();
 

@@ -7,17 +7,6 @@
         </x-slot:actions>
     </x-page-header>
 
-    {{-- Stat cards --}}
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <x-stat-card icon="users" color="blue" :label="__('Total users')" :value="number_format($this->summary['total'])" :note="__('Archived users not counted')" />
-        <x-stat-card icon="check-badge" color="green" :label="__('Active')" :value="number_format($this->summary['active'])"
-            :note="$this->summary['total'] > 0 ? __(':percent% of all users', ['percent' => intdiv($this->summary['active'] * 100, $this->summary['total'])]) : null" />
-        <x-stat-card icon="no-symbol" color="zinc" :label="__('Inactive')" :value="number_format($this->summary['inactive'])" :note="__('Cannot log in')" />
-        <x-stat-card icon="wrench-screwdriver" color="amber" :label="__('Workers vs admins')"
-            :value="number_format($this->summary['roles']['worker']).' / '.number_format($this->summary['roles']['admin'])"
-            :note="__(':count staff', ['count' => $this->summary['roles']['staff']])" />
-    </div>
-
     {{-- Filter toolbar --}}
     <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
         <div class="grid gap-3 md:grid-cols-[1fr_12rem_12rem]">

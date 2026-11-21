@@ -6,7 +6,7 @@
     <body class="min-h-screen bg-brand-page text-brand-text antialiased">
         <flux:sidebar sticky collapsible class="dark border-e border-brand-navy bg-brand-navy">
             <flux:sidebar.header>
-                <x-app-logo :sidebar="true" href="{{ route('clock') }}" wire:navigate />
+                <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse class="in-data-flux-sidebar-on-desktop:not-in-data-flux-sidebar-collapsed-desktop:-mr-2" />
             </flux:sidebar.header>
 
@@ -14,7 +14,8 @@
                 {{-- Only the items the user has permission for, grouped by section (App\Support\Navigation). --}}
                 @php($currentMenuRoute = \App\Support\Navigation::owner(request()->route()?->getName())['route'] ?? null)
                 @foreach (\App\Support\Navigation::groupedFor(auth()->user()) as $group => $items)
-                    <flux:sidebar.group :heading="__($group)" class="grid">
+                    {{-- The '' group (Dashboard) comes first and has no heading. --}}
+                    <flux:sidebar.group :heading="$group === '' ? null : __($group)" class="grid">
                         @foreach ($items as $item)
                             <flux:sidebar.item
                                 :icon="$item['icon']"

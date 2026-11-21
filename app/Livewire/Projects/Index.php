@@ -56,19 +56,8 @@ class Index extends Component
 
         $projects->archive(Project::findOrFail($projectId));
 
-        unset($this->projects, $this->summary);
+        unset($this->projects);
         Flux::toast(text: __('Project archived.'));
-    }
-
-    /**
-     * Counts for the stat cards.
-     *
-     * @return array{total: int, statuses: array<string, int>}
-     */
-    #[Computed]
-    public function summary(): array
-    {
-        return app(ProjectService::class)->summary();
     }
 
     /**

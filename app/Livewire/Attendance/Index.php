@@ -27,7 +27,6 @@ use Livewire\Component;
  * "Needs correction (N)" (T-13) replaces the tab's list with every flagged attendance, any date.
  *
  * @property-read LengthAwarePaginator<int, array{user: User, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $daily
- * @property-read array{employees: int, present: int, absent: int, labor_cost: string} $dailySummary
  * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null $employeeDays
  * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string}|null $employeeSummary
  * @property-read array{from: string, to: string, shortened: bool} $range
@@ -143,15 +142,6 @@ class Index extends Component
     public function daily(): LengthAwarePaginator
     {
         return app(AttendanceHistoryService::class)->daily($this->date, $this->selectedId($this->user), $this->selectedId($this->project), $this->sortBy, $this->perPage());
-    }
-
-    /**
-     * @return array{employees: int, present: int, absent: int, labor_cost: string}
-     */
-    #[Computed]
-    public function dailySummary(): array
-    {
-        return app(AttendanceHistoryService::class)->dailySummary($this->date, $this->selectedId($this->user), $this->selectedId($this->project));
     }
 
     /**
@@ -273,7 +263,7 @@ class Index extends Component
     #[On('attendance-corrected')]
     public function refreshAfterCorrection(): void
     {
-        unset($this->daily, $this->dailySummary, $this->employeeDays, $this->employeeSummary, $this->flagged, $this->flaggedCount);
+        unset($this->daily, $this->employeeDays, $this->employeeSummary, $this->flagged, $this->flaggedCount);
     }
 
     public function render(): View

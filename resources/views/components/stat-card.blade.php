@@ -1,5 +1,5 @@
-{{-- Summary number above a list: icon in a tinted circle, label, value and a short note. --}}
-@props(['label', 'value', 'icon', 'color' => 'blue', 'note' => null])
+{{-- Summary number on the Dashboard (T-15.1): icon in a tinted circle, label, value and a short note. With `href` the whole card is a link. --}}
+@props(['label', 'value', 'icon', 'color' => 'blue', 'note' => null, 'href' => null])
 
 @php
     $tones = [
@@ -10,9 +10,14 @@
         'indigo' => 'bg-indigo-soft text-indigo',
         'zinc' => 'bg-neutral-soft text-neutral',
     ];
+    $tag = $href ? 'a' : 'div';
 @endphp
 
-<div {{ $attributes->class('flex items-start gap-4 rounded-card bg-white p-5 shadow-card ring-1 ring-brand-navy/5 transition-shadow duration-200 hover:shadow-card-hover') }}>
+<{{ $tag }}
+    data-stat-card
+    @if ($href) href="{{ $href }}" wire:navigate @endif
+    {{ $attributes->class('flex items-start gap-4 rounded-card bg-white p-5 shadow-card ring-1 ring-brand-navy/5 transition-shadow duration-200 hover:shadow-card-hover') }}
+>
     <span class="flex size-11 shrink-0 items-center justify-center rounded-full {{ $tones[$color] ?? $tones['blue'] }}">
         <flux:icon :icon="$icon" class="size-5" />
     </span>
@@ -23,4 +28,4 @@
             <p class="mt-0.5 truncate text-xs text-zinc-500">{{ $note }}</p>
         @endif
     </div>
-</div>
+</{{ $tag }}>

@@ -61,17 +61,6 @@ class Index extends Component
     }
 
     /**
-     * Counts for the stat cards.
-     *
-     * @return array{total: int, active: int, inactive: int, roles: array<string, int>}
-     */
-    #[Computed]
-    public function summary(): array
-    {
-        return app(UserService::class)->summary();
-    }
-
-    /**
      * @return LengthAwarePaginator<int, User>
      */
     #[Computed]
@@ -115,7 +104,7 @@ class Index extends Component
             return;
         }
 
-        unset($this->users, $this->summary);
+        unset($this->users);
         Flux::toast(variant: 'success', text: $message);
     }
 

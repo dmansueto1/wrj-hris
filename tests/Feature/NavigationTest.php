@@ -13,6 +13,7 @@ class NavigationTest extends TestCase
     use RefreshDatabase;
 
     private const ALL_ITEMS = [
+        'dashboard',
         'clock',
         'attendance.mine',
         'attendance.index',
@@ -33,6 +34,7 @@ class NavigationTest extends TestCase
         return [
             'admin sees everything' => ['admin', self::ALL_ITEMS],
             'staff see everything except Users' => ['staff', [
+                'dashboard',
                 'clock',
                 'attendance.mine',
                 'attendance.index',
@@ -41,7 +43,8 @@ class NavigationTest extends TestCase
                 'materials.index',
                 'reports.index',
             ]],
-            'worker sees only Clock and My Attendance' => ['worker', [
+            'worker sees only Dashboard, Clock and My Attendance' => ['worker', [
+                'dashboard',
                 'clock',
                 'attendance.mine',
             ]],
@@ -65,12 +68,25 @@ class NavigationTest extends TestCase
         }
     }
 
-    public function testTheStarterKitDashboardIsGone(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function roles(): array
     {
-        $this->actingAs(User::factory()->admin()->create());
+        return ['admin' => ['admin'], 'staff' => ['staff'], 'worker' => ['worker']];
+    }
 
-        $this->get(route('clock'))->assertDontSee('Dashboard');
-        $this->get('/dashboard')->assertNotFound();
+    #[DataProvider('roles')]
+    public function testDashboardIsTheFirstMenuItemWithNoGroupHeading(string $role): void
+    {
+        $user = User::factory()->{$role}()->create();
+
+        $this->assertSame('dashboard', Navigation::for($user)[0]['route']);
+        $this->assertSame([''], array_slice(array_keys(Navigation::groupedFor($user)), 0, 1));
+
+        $this->actingAs($user)->get(route('dashboard'))
+            ->assertOk()
+            ->assertSeeInOrder(['data-test="nav-dashboard"', 'Time', 'data-test="nav-clock"'], false);
     }
 
     public function testTheUserMenuShowsNameEmployeeNumberAndRole(): void
@@ -95,11 +111,12 @@ class NavigationTest extends TestCase
             ->assertSeeInOrder(['Time', 'Clock In/Out', 'All Attendance', 'Operations', 'Projects', 'Materials', 'Admin', 'Users', 'Reports']);
     }
 
-    public function testAWorkerOnlySeesTheTimeSection(): void
+    public function testAWorkerOnlySeesTheDashboardAndTheTimeSection(): void
     {
         $this->actingAs(User::factory()->worker()->create());
 
-        $this->assertSame(['Time'], array_keys(Navigation::groupedFor(auth()->user())));
+        // '' is the Dashboard, shown first with no heading (T-15.1).
+        $this->assertSame(['', 'Time'], array_keys(Navigation::groupedFor(auth()->user())));
     }
 
     public function testSubPagesBelongToTheirListsMenuItem(): void

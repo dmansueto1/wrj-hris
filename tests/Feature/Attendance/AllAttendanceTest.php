@@ -6,6 +6,7 @@ use App\Livewire\Attendance\Index;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\AttendanceHistoryService;
 use App\Services\AttendanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -101,7 +102,7 @@ class AllAttendanceTest extends TestCase
         // Four employees counting the admin: 1 present, 3 absent, ₱ 360.00 of labor.
         $this->assertSame(
             ['employees' => 4, 'present' => 1, 'absent' => 3, 'labor_cost' => '360.00'],
-            $component->instance()->dailySummary,
+            $this->dailySummary('2026-10-21'),
         );
     }
 
@@ -169,7 +170,7 @@ class AllAttendanceTest extends TestCase
         $row = $component->instance()->daily->items()[0];
         $this->assertCount(2, $row['attendances']);
         $this->assertTrue($row['present']);
-        $this->assertSame(1, $component->instance()->dailySummary['present']);
+        $this->assertSame(1, $this->dailySummary('2026-10-21', $worker->id)['present']);
         $component->assertSee('12:30 PM')->assertSee('5:00 PM');
     }
 
@@ -260,7 +261,7 @@ class AllAttendanceTest extends TestCase
         // Two people present on Riverside, ₱ 720.00 of Riverside labor (2 × 4.50 h at ₱ 80.00).
         $this->assertSame(
             ['employees' => 2, 'present' => 2, 'absent' => 0, 'labor_cost' => '720.00'],
-            $component->instance()->dailySummary,
+            $this->dailySummary('2026-10-21', null, $riverside->id),
         );
         $component->assertSeeHtml('data-test="active-filters"')
             ->assertSee('Project: Riverside Townhomes')
@@ -335,7 +336,7 @@ class AllAttendanceTest extends TestCase
         foreach (['project', 'worked_time'] as $sort) {
             $component = Livewire::test(Index::class)->set('sortBy', $sort);
             $this->assertSame(2, $component->instance()->daily->total(), $sort); // Abad and the admin, once each
-            $this->assertSame(2, $component->instance()->dailySummary['employees'], $sort);
+            $this->assertSame(2, $this->dailySummary('2026-10-21')['employees'], $sort);
         }
     }
 
@@ -402,7 +403,7 @@ class AllAttendanceTest extends TestCase
             ->assertSeeHtml('data-test="presence-none"')
             ->assertDontSeeHtml('data-test="presence-absent"');
         $this->assertTrue($daily->instance()->daily->items()[0]['future']);
-        $this->assertSame(['employees' => 2, 'present' => 0, 'absent' => 0, 'labor_cost' => '0.00'], $daily->instance()->dailySummary);
+        $this->assertSame(['employees' => 2, 'present' => 0, 'absent' => 0, 'labor_cost' => '0.00'], $this->dailySummary('2026-10-22'));
 
         // By employee for this week: Monday present, Tuesday and today absent, the rest still to come.
         $byEmployee = Livewire::test(Index::class)
@@ -590,6 +591,16 @@ class AllAttendanceTest extends TestCase
     }
 
     // ---- Helpers --------------------------------------------------------------------------
+
+    /**
+     * The Daily attendance numbers (T-15.1 moved them from the page's cards to the Dashboard).
+     *
+     * @return array{employees: int, present: int, absent: int, labor_cost: string}
+     */
+    private function dailySummary(string $date, ?int $userId = null, ?int $projectId = null): array
+    {
+        return app(AttendanceHistoryService::class)->dailySummary($date, $userId, $projectId);
+    }
 
     private function signInAdmin(): User
     {

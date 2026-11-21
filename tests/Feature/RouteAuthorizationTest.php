@@ -19,6 +19,7 @@ class RouteAuthorizationTest extends TestCase
     public static function pages(): array
     {
         return [
+            'Dashboard' => ['/dashboard', 200, 200, 200],
             'Clock In/Out' => ['/clock', 200, 200, 200],
             'My Attendance' => ['/attendance/mine', 200, 200, 200],
             'All Attendance' => ['/attendance', 200, 200, 403],

@@ -12,7 +12,7 @@ use App\Support\Navigation;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return auth()->check() ? redirect()->route('clock') : redirect()->route('login');
+    return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
 })->name('home');
 
 // Shared site kiosk (T-10.1): no login. Workers clock in/out with their username and password.

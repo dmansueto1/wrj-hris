@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Livewire\Attendance;
+use App\Livewire\Dashboard;
 use App\Livewire\Devices;
 use App\Livewire\MaterialEntries;
 use App\Livewire\Materials;
@@ -24,6 +25,8 @@ class Navigation
     public static function items(): array
     {
         return [
+            // T-15.1: first, with no group heading ('' group).
+            ['label' => 'Dashboard', 'url' => 'dashboard', 'route' => 'dashboard', 'group' => '', 'icon' => 'home', 'permissions' => ['attendance.view-own'], 'component' => Dashboard::class],
             ['label' => 'Clock In/Out', 'url' => 'clock', 'route' => 'clock', 'group' => 'Time', 'icon' => 'clock', 'permissions' => ['attendance.clock'], 'component' => Attendance\Clock::class],
             ['label' => 'My Attendance', 'url' => 'attendance/mine', 'route' => 'attendance.mine', 'group' => 'Time', 'icon' => 'calendar-days', 'permissions' => ['attendance.view-own'], 'component' => Attendance\Mine::class],
             ['label' => 'All Attendance', 'url' => 'attendance', 'route' => 'attendance.index', 'group' => 'Time', 'icon' => 'table-cells', 'permissions' => ['attendance.view-all'], 'component' => Attendance\Index::class],
@@ -103,10 +106,11 @@ class Navigation
             return $pageTitle ? [['label' => $pageTitle, 'url' => null]] : [];
         }
 
-        $crumbs = [
-            ['label' => $item['group'], 'url' => null],
+        // An item without a group (Dashboard) has no section crumb.
+        $crumbs = array_values(array_filter([
+            $item['group'] === '' ? null : ['label' => $item['group'], 'url' => null],
             ['label' => $item['label'], 'url' => route($item['route'])],
-        ];
+        ]));
 
         if ($item['route'] !== $routeName && $pageTitle) {
             $crumbs[] = ['label' => $pageTitle, 'url' => null];

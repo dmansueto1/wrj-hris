@@ -11,7 +11,7 @@
 - Every route and Livewire action already checks permissions, not roles: menu items and their route middleware come from `App\Support\Navigation::items()` / `middlewareFor()` (`permission:…`), and components check `Auth::user()->can('…')` in `boot()`. So changing a role's permissions changes what its users can see and do, with no other code change.
 - `App\Models\User::ROLES` = `['admin', 'staff', 'worker']`; T-06 lets the Admin pick a user's role on `/users/create` and `/users/{user}/edit` (`users.manage`, behind `password.confirm`). Roles themselves are not created or renamed in this ticket.
 - `spatie/laravel-activitylog` is installed and its `activity_log` table is migrated, but nothing writes to it yet (T-17 adds the History panels).
-- Page building blocks to reuse: `<x-page-header>`, `<x-stat-card>`, `<x-data-card>`, `<x-status-badge>`, `btn-accent`, `flux:checkbox`, `flux:modal`, `Flux::toast()`.
+- Page building blocks to reuse: `<x-page-header>`, `<x-data-card>`, `<x-status-badge>`, `btn-accent`, `flux:checkbox`, `flux:modal`, `Flux::toast()`.
 
 **Build**
 
@@ -21,7 +21,7 @@
 - `App\Support\PermissionCatalog` (labels only, no logic): for each permission name, a short label, a one-line description in simple English, and a group, in display order:
   - Time: `attendance.clock` "Clock in and out", `attendance.view-own` "See own attendance", `attendance.view-all` "See everyone's attendance", `attendance.correct` "Correct attendance".
   - Operations: `projects.manage` "Manage projects", `materials.manage` "Manage materials", `material-entries.create` "Record material purchases", `expenses.view` "See project expenses".
-  - Admin: `users.manage` "Manage users and hourly rates", `reports.export` "Export reports", `roles.manage` "Manage roles and permissions".
+  - Admin: `users.manage` "Manage users and hourly rates", `reports.export` "Export reports", `dashboard.overview` "See the admin dashboard" (T-15.1), `roles.manage` "Manage roles and permissions".
   - `PermissionCatalog::all()` returns them grouped; a unit test fails if a permission in the seeder has no catalog entry.
 - `App\Services\RolePermissionService`:
   - `matrix(): array<string, list<string>>` — current permission names per role (`admin`, `staff`, `worker`).
@@ -34,7 +34,6 @@
 - Menu and route: add to `Navigation::items()` `['label' => 'Roles & Permissions', 'url' => 'roles', 'route' => 'roles.index', 'group' => 'Admin', 'icon' => 'shield-check', 'permissions' => ['roles.manage'], 'component' => Roles\Index::class, 'middleware' => ['password.confirm']]` (after Users, before Reports). The route is registered by the existing loop in `routes/web.php`.
 - Page design (standard pattern, light theme, brand tokens only):
   - `<x-page-header>` "Roles & Permissions", description "Choose what each role can see and do. Admin always has every permission." Actions on the right: "Restore defaults" (secondary button, opens a confirm `flux:modal`: "Set Staff and Worker back to the standard permissions?") and "Save changes" (`btn-accent`, disabled until `hasChanges`).
-  - A row of three `<x-stat-card>`s, one per role: label "Admin" / "Staff" / "Worker", value ":count of :total permissions", note ":count users" (users with that role, archived users not counted).
   - The matrix inside `<x-data-card>`: a `flux:table` with columns Permission (label in bold, description below in `text-zinc-500`), Admin, Staff, Worker (centered `flux:checkbox`), with a group heading row per group (Time / Operations / Admin, small uppercase, `bg-brand-page`). The Admin column is always checked and disabled with a lock icon and the tooltip "Admin always has every permission"; the Staff and Worker boxes on the `roles.manage` row are unchecked and disabled ("Only Admin can manage roles"). This is a fixed settings grid of 11 rows, so it is not paginated (exception to the rows-per-page rule).
   - Phone (`md:hidden`): one card per permission with its label, description and three labeled checkboxes (Admin / Staff / Worker) in a row.
   - While `hasChanges`, a sticky bar at the bottom of the card: "You have unsaved changes" with "Discard" and "Save changes".

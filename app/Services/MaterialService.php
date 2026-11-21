@@ -48,22 +48,6 @@ class MaterialService
     }
 
     /**
-     * Counts for the stat cards above the materials list (archived materials excluded).
-     *
-     * @return array{total: int, active: int, inactive: int}
-     */
-    public function summary(): array
-    {
-        $byStatus = Material::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-
-        return [
-            'total' => (int) $byStatus->sum(),
-            'active' => (int) ($byStatus[Material::STATUS_ACTIVE] ?? 0),
-            'inactive' => (int) ($byStatus[Material::STATUS_INACTIVE] ?? 0),
-        ];
-    }
-
-    /**
      * Codes are stored in uppercase ("hb-04" becomes "HB-04").
      */
     public static function normalizeCode(string $code): string

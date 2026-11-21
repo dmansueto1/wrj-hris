@@ -8,6 +8,7 @@ use App\Livewire\Attendance\Mine;
 use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\AttendanceHistoryService;
 use App\Services\AttendanceService;
 use App\Services\UserShiftService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -151,7 +152,7 @@ class ShiftCountingTest extends TestCase
             ->assertDontSee('Outside shift');
 
         // The All Attendance totals use the counted labor cost.
-        $this->assertSame('320.00', $index->instance()->dailySummary['labor_cost']);
+        $this->assertSame('320.00', app(AttendanceHistoryService::class)->dailySummary('2026-10-19', null, null)['labor_cost']);
 
         $this->actingAs($worker);
         Livewire::test(Mine::class)

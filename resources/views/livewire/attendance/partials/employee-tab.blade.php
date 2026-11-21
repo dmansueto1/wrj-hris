@@ -59,12 +59,6 @@
         />
     </x-data-card>
 @else
-    <div class="grid gap-4 sm:grid-cols-3">
-        <x-stat-card icon="check-circle" color="green" :label="__('Present days')" :value="number_format($this->employeeSummary['present_days'])" :note="__('Days with attendance')" />
-        <x-stat-card icon="minus-circle" color="zinc" :label="__('Absent days')" :value="number_format($this->employeeSummary['absent_days'])" :note="__('Working days without attendance')" />
-        <x-stat-card icon="clock" color="blue" :label="__('Total hours')" :value="$this->employeeSummary['hours'].' h'" :note="__('In this date range')" />
-    </div>
-
     <x-data-card>
         {{-- Desktop / tablet: one row per day; the attendance under Morning and Afternoon --}}
         <div class="hidden max-h-[70vh] overflow-auto px-4 sm:px-6 md:block">

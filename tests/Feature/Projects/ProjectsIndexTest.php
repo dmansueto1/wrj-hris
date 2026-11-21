@@ -130,20 +130,6 @@ class ProjectsIndexTest extends TestCase
             ->assertForbidden();
     }
 
-    public function testTheStatCardsCountProjectsByStatus(): void
-    {
-        $this->actingAs(User::factory()->admin()->create());
-        Project::factory()->ongoing()->count(2)->create();
-        Project::factory()->onHold()->create();
-        Project::factory()->planning()->create();
-        Project::factory()->completed()->create()->delete();
-
-        Livewire::test(Index::class)->assertSet('summary', [
-            'total' => 4,
-            'statuses' => ['planning' => 1, 'ongoing' => 2, 'on_hold' => 1, 'completed' => 0],
-        ]);
-    }
-
     public function testTheListCanSwitchBetweenCardsAndTable(): void
     {
         $this->actingAs(User::factory()->admin()->create());

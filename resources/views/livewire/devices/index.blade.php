@@ -1,13 +1,6 @@
 <div class="flex flex-col gap-6">
     <x-page-header :title="__('Devices')" :description="__('Phones, tablets and computers allowed to use the kiosk and Clock In/Out.')" />
 
-    {{-- Stat cards --}}
-    <div class="grid gap-4 sm:grid-cols-3">
-        <x-stat-card icon="clock" color="amber" :label="__('Pending requests')" :value="number_format($this->summary['pending'])" :note="__('Waiting for your approval')" />
-        <x-stat-card icon="check-badge" color="green" :label="__('Approved')" :value="number_format($this->summary['approved'])" :note="__('Can use the kiosk and Clock In/Out')" />
-        <x-stat-card icon="no-symbol" color="red" :label="__('Blocked')" :value="number_format($this->summary['blocked'])" :note="__('Cannot use either page')" />
-    </div>
-
     {{-- Filter toolbar --}}
     <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
         <div class="grid gap-3 md:grid-cols-[1fr_12rem]">

@@ -68,17 +68,6 @@ class Index extends Component
     }
 
     /**
-     * Counts for the stat cards.
-     *
-     * @return array{total: int, active: int, inactive: int}
-     */
-    #[Computed]
-    public function summary(): array
-    {
-        return app(MaterialService::class)->summary();
-    }
-
-    /**
      * @return LengthAwarePaginator<int, Material>
      */
     #[Computed]
@@ -107,7 +96,7 @@ class Index extends Component
 
     private function refreshList(string $message): void
     {
-        unset($this->materials, $this->summary);
+        unset($this->materials);
         Flux::toast(variant: 'success', text: $message);
     }
 }

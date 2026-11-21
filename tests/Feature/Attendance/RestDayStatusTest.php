@@ -6,6 +6,7 @@ use App\Livewire\Attendance\Index;
 use App\Livewire\Attendance\Mine;
 use App\Models\Attendance;
 use App\Models\User;
+use App\Services\AttendanceHistoryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -48,7 +49,7 @@ class RestDayStatusTest extends TestCase
 
         // The resting employee is not Absent: only Cruz and the admin are.
         $this->assertSame(['employees' => 4, 'present' => 1, 'absent' => 2], array_intersect_key(
-            $component->instance()->dailySummary,
+            app(AttendanceHistoryService::class)->dailySummary('2026-10-18', null, null),
             array_flip(['employees', 'present', 'absent']),
         ));
     }
@@ -62,7 +63,7 @@ class RestDayStatusTest extends TestCase
             ->assertSeeHtml('data-test="presence-absent"')
             ->assertDontSeeHtml('data-test="presence-rest-day"');
 
-        $this->assertSame(1, $component->instance()->dailySummary['absent']);
+        $this->assertSame(1, app(AttendanceHistoryService::class)->dailySummary('2026-10-19', null, null)['absent']);
     }
 
     public function testTheRestDayBadgeIsBlueLikeTheButtons(): void
