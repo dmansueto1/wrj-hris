@@ -116,7 +116,7 @@ class ProjectsIndexTest extends TestCase
             ->assertSee('Rows per page');
     }
 
-    public function testTheProjectPageIsAPlaceholderForNow(): void
+    public function testTheProjectPageOpensForStaffButNotWorkers(): void
     {
         $project = Project::factory()->create(['name' => 'Riverside Townhomes']);
 

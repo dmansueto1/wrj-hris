@@ -7,7 +7,6 @@ use App\Livewire\MaterialEntries;
 use App\Livewire\Materials;
 use App\Livewire\Projects;
 use App\Livewire\Users;
-use App\Models\Project;
 use App\Support\Navigation;
 use Illuminate\Support\Facades\Route;
 
@@ -46,9 +45,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::livewire('projects/{project}/edit', Projects\Edit::class)->name('projects.edit');
     });
 
-    // Project page: placeholder until T-16 adds running expenses.
-    Route::get('projects/{project}', fn (Project $project) => view('placeholder', ['title' => $project->name]))
-        ->middleware(Navigation::middlewareFor('projects.index'))
+    // Project page (T-16): running expenses and breakdowns, Admin and Staff.
+    Route::livewire('projects/{project}', Projects\Show::class)
+        ->middleware('permission:expenses.view')
         ->name('projects.show');
 
     // Materials masterfile (T-08): add and edit screens, same protection as the list.

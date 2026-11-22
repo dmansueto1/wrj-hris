@@ -69,6 +69,33 @@
             />
         </div>
 
+        {{-- Expenses (T-16): this month across all projects, and the projects running out of budget --}}
+        @php($expenses = $this->expenses)
+        @php($money = fn ($amount) => \App\Support\Money::format($amount))
+        <section class="flex flex-col gap-3" aria-labelledby="dashboard-expenses">
+            <h2 id="dashboard-expenses" class="text-xs font-semibold uppercase tracking-wider text-neutral">{{ __('Expenses') }}</h2>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <x-stat-card
+                    icon="calculator"
+                    color="blue"
+                    :label="__('Expenses this month')"
+                    :value="$money($expenses['month']['running'])"
+                    :note="__('Labor :labor · Materials :materials', ['labor' => $money($expenses['month']['labor']), 'materials' => $money($expenses['month']['materials'])])"
+                    :href="route('projects.index')"
+                    data-test="card-expenses-month"
+                />
+                <x-stat-card
+                    icon="chart-pie"
+                    :color="$expenses['budget']['over'] > 0 ? 'red' : ($expenses['budget']['warning'] > 0 ? 'amber' : 'zinc')"
+                    :label="__('Projects near budget')"
+                    :value="number_format($expenses['budget']['warning'])"
+                    :note="$expenses['budget']['over'] > 0 ? __(':count over budget', ['count' => number_format($expenses['budget']['over'])]) : __('At 80% or more of budget')"
+                    :href="route('projects.index', ['budget' => 'watch'])"
+                    data-test="card-budget-watch"
+                />
+            </div>
+        </section>
+
         <x-data-card data-test="todays-attendance">
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 sm:px-6">
                 <h2 class="text-base font-bold text-brand-navy">{{ __("Today's Attendance") }}</h2>

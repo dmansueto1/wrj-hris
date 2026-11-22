@@ -29,6 +29,14 @@
 - Feature: date filter changes the totals.
 - Feature: worker gets 403 on `/projects/{project}`.
 
+**Changes during build (agreed with the product owner)**
+
+- The three totals are a panel, not `<x-stat-card>`s (stat cards stay Dashboard-only, T-15.1): Running expenses is a navy hero tile with the budget bar; Labor and Materials sit beside it with their share of running expenses (`ProjectExpenseService::shares()`, one decimal, half-up).
+- From / To default to the project's start date until today (`ProjectExpenseService::defaultRange()`); no default when the project has no start date or starts after today. "Clear filters" returns to the default.
+- Admin Dashboard: an "Expenses" row with "Expenses this month" (all projects, 1st of the month to today, `overallTotals()`) and "Projects near budget" (projects at 80% or more of budget, with how many are over 100%, `budgetWatch()`), linking to `/projects?budget=watch`.
+- Projects list: a Budget filter ("80% or more used", "Over budget"), computed in SQL by `ProjectExpenseService::whereBudgetUsedAtLeast()`.
+- `/projects/{project}` requires `expenses.view` (Admin and Staff).
+
 ## Definition of done
 
 - [ ] All acceptance criteria met

@@ -79,6 +79,7 @@ When finished, list every file you created or changed.
 | T-15 | Material entry screen | Materials & Expenses | T-14 |
 | T-15.1 | Dashboard and remove page cards | Additional | T-15, T-13, T-11.4, T-11.1 |
 | T-16 | Project running expenses page | Materials & Expenses | T-10, T-15 |
+| T-16.1 | Late on attendance tables | Additional | T-11.2, T-11.3, T-11.4, T-14.1 |
 | T-17 | Audit log | Audit, Reports & Release | T-12, T-15 |
 | T-18 | Reports and exports | Audit, Reports & Release | T-16 |
 | T-19 | Demo data, QA and release readiness | Audit, Reports & Release | All |
@@ -586,6 +587,14 @@ These tickets add material costs with the 20% markup and bring labor and materia
 - A date range filter applies to the cards and all tabs.
 - Add a "Running expenses" column to the `/projects` list.
 - Only `closed` and `adjusted` sessions count; open, flagged and void sessions are excluded.
+
+**Changes during build (agreed with the product owner)**
+
+- The three totals are a panel, not `<x-stat-card>`s (stat cards stay Dashboard-only, T-15.1): Running expenses is a navy hero tile with the budget bar; Labor and Materials sit beside it with their share of running expenses (`ProjectExpenseService::shares()`, one decimal, half-up).
+- From / To default to the project's start date until today (`ProjectExpenseService::defaultRange()`); no default when the project has no start date or starts after today. "Clear filters" returns to the default.
+- Admin Dashboard: an "Expenses" row with "Expenses this month" (all projects, 1st of the month to today, `overallTotals()`) and "Projects near budget" (projects at 80% or more of budget, with how many are over 100%, `budgetWatch()`), linking to `/projects?budget=watch`.
+- Projects list: a Budget filter ("80% or more used", "Over budget"), computed in SQL by `ProjectExpenseService::whereBudgetUsedAtLeast()`.
+- `/projects/{project}` requires `expenses.view` (Admin and Staff).
 
 **Acceptance criteria**
 
@@ -1470,6 +1479,205 @@ The last three tickets make every sensitive change traceable, give the client ex
 2. Click "Needs correction": All Attendance opens filtered.
 3. Log in as a worker on a phone (375 px): see your last 14 days and a big Clock In button.
 4. Open All Attendance, My Attendance, Projects, Materials, Users, Devices and Material Entries: no card row, and filters still work.
+
+## Definition of done
+
+- [ ] All acceptance criteria met
+- [ ] All listed tests written and passing; full suite passes with `php artisan test`
+- [ ] Screens work at phone width (375 px) and desktop width
+- [ ] No errors in the browser console or `storage/logs/laravel.log`
+- [ ] Code formatted with `./vendor/bin/pint`
+
+---
+
+### T-16.1 – Late on attendance tables
+
+**Goal:** every attendance table shows how late each employee was on each day, in hours like Worked time ("0.42 h"), measured against the shift saved on the attendance at clock-in, with a Late total on the Total rows.
+
+**Depends on:** T-11.2 (user shifts), T-11.3 (shift saved on the attendance, counted minutes), T-11.4 (Morning / Afternoon day tables), T-14.1 (System Settings)
+
+**Current implementation**
+
+- The shift is saved on each attendance at clock-in (T-11.3):
+  - Column `attendances.shift_windows` (JSON, cast `array`): a list of `{start, end}` date-times for that work date. `null` means Flexible (no shift), `[]` means a rest day.
+  - Windows are built by `UserShiftService::windows()` (One shift a day: one window, night shifts end the next day; Two shifts a day: morning and afternoon windows).
+  - `App\Support\Costing\ShiftMinutes::counted()` counts only the minutes inside the windows. `minutes_worked`, `hours_worked` and `labor_cost` already leave out time before the shift starts, so late minutes are already unpaid.
+- The day tables:
+  - `App\Support\AttendanceDay` wraps one person's non-void attendance on one day. It provides `hours()`, `uncountedMinutes()`, `shiftLabel()` and `open()`.
+  - `resources/views/livewire/attendance/partials/day-cells.blade.php` renders the Morning In, Morning Out, Afternoon In, Afternoon Out and Worked time cells (Worked time via `day-worked.blade.php`).
+  - `day-cells` is used by:
+    - `partials/daily-table.blade.php`: All Attendance › Daily attendance, and the Dashboard's Today's Attendance
+    - `partials/employee-tab.blade.php`: All Attendance › By employee
+    - `partials/my-days-table.blade.php`: My Attendance, and the Dashboard's personal My Attendance
+  - Each table has phone cards (`md:hidden`).
+- Hours format:
+  - `App\Support\Costing\LaborCost::hoursForMinutes(int $minutes)` turns minutes into hours with two decimals, rounded half-up (260 → "4.33").
+  - Worked time shows as `"{hours} h"`.
+- Total rows:
+  - `AttendanceHistoryService::employeeSummary()` returns `present_days`, `absent_days`, `hours` and `labor_cost` over the range.
+  - `Attendance\Mine::totals()` and `Attendance\Index::employeeSummary()` use it. `my-days-table` takes `$totalHours`; `employee-tab` has its own Total row.
+- System Settings (T-14.1):
+  - `App\Support\SettingsCatalog` lists each setting (key, label, description, group, type, default, min, max, unit).
+  - `App\Support\Settings::int()` reads a value.
+  - `SystemSettingsService` validates and logs changes.
+  - The page is Admin only (`settings.manage`).
+- Late does not exist anywhere yet: no column, no helper, no setting.
+
+**Build**
+
+1. **`App\Support\Lateness` (new, pure, no database).** Late minutes of one day.
+
+   ```php
+   /**
+    * @param  iterable<Attendance>  $attendances  the day's non-void attendance (clock_in_at, clock_out_at|null)
+    * @param  array<int, array{start: string, end: string}>|null  $windows  the shift saved at clock-in; null = Flexible, [] = rest day
+    */
+   public static function minutes(iterable $attendances, ?array $windows, int $graceMinutes, CarbonInterface $now): int
+   ```
+
+   Rules:
+   - Flexible (`null`), a rest day (`[]`), or no attendance → 0.
+   - For each shift window `[start, end]`, take the attendance that overlaps it: `clock_in_at < end` and `(clock_out_at ?? $now) > start`.
+     - **No attendance overlaps the window** (the employee skipped it) → 0 for that window. A missed window is not late.
+     - **One of them clocked in at or before `start`** (on time, or still Clocked In from the morning through lunch) → 0.
+     - **Otherwise** late = whole minutes from `start` to the earliest `clock_in_at` among them, seconds dropped (8:15:59 → 15).
+   - Grace period: a window's late minutes that are less than or equal to `$graceMinutes` become 0. Above it, the full minutes count (grace 5, late 7 → 7).
+   - Return the sum over the windows.
+   - Returning to work after a break inside the same window is not late (8:00–10:00, then 10:30–12:00 → 0).
+
+2. **New setting in `SettingsCatalog`**, group Attendance:
+
+   ```php
+   [
+       'key' => 'attendance_late_grace_minutes',
+       'label' => 'Late grace period',
+       'description' => 'Clocking in up to this many minutes after the shift starts is not late. 0 counts every minute.',
+       'group' => 'Attendance',
+       'type' => 'int',
+       'default' => '0',
+       'min' => 0,
+       'max' => 60,
+       'unit' => 'minutes',
+   ],
+   ```
+
+   It shows on the System Settings page with the existing validation and activity log. No migration is needed: settings fall back to the catalog default.
+
+3. **`AttendanceDay`.** Add these methods:
+   - `lateMinutes(): int` calls `Lateness::minutes()` with:
+     - the day's attendance
+     - the shift from the first attendance whose `shift_windows` is not `null` (otherwise `null`)
+     - `Settings::int('attendance_late_grace_minutes')`
+     - `now()`
+   - `late(): ?string` returns `LaborCost::hoursForMinutes($this->lateMinutes())`, or `null` when the late minutes are 0.
+
+4. **`AttendanceHistoryService::employeeSummary()`.** Add `late_minutes` (int) and `late` (string, e.g. "0.42") to the returned array:
+   - Load the range's non-void attendance of that user with only `work_date`, `clock_in_at`, `clock_out_at` and `shift_windows`.
+   - Group it by `work_date`, sum `Lateness::minutes()` per day, then convert with `LaborCost::hoursForMinutes()`.
+   - Use the existing `cappedRange()`, so the work stays bounded.
+   - Update the `@return` array shapes in `AttendanceHistoryService`, `Mine::totals()` and `Index::employeeSummary()`.
+
+5. **New partial `resources/views/livewire/attendance/partials/day-late.blade.php`:**
+   - **When late:** `"{late} h"` in `text-warning` font-semibold tabular-nums, with `data-test="late-hours"`. A `title` and an `sr-only` text read "Late :minutes min (shift :shift)", using `AttendanceDay::shiftLabel()`.
+   - **Otherwise:** a dash (`text-zinc-400`).
+
+6. **`day-cells.blade.php`:** include `day-late` as a new cell right after the Worked time cell (`align="end"`).
+
+7. **Tables.** Add a `Late` column header (`align="end"`) right after `Worked time` in:
+   - `daily-table.blade.php`
+   - `employee-tab.blade.php`
+   - `my-days-table.blade.php`
+
+   In the same tables:
+   - Fix every `colspan` in the Total rows and empty cells so the columns still line up.
+   - In the phone cards, show "Late 0.42 h" next to the worked hours when late.
+
+8. **Total rows:**
+   - **My Attendance (`my-days-table`):** add a `$totalLate` parameter next to `$totalHours` and show it under the Late column (`data-test="range-total-late"`).
+     - `mine.blade.php` passes `$this->totals['late']`.
+     - The Dashboard passes `null` (no Total row, as today).
+   - **By employee (`employee-tab`):** show `employeeSummary['late']` under Late on its Total row.
+   - A total of 0 minutes shows "0.00 h".
+
+9. **Rules for this ticket:**
+   - On screen the column is "Late". Never "tardy", never "session" or "duty".
+   - Late is display only: no column is stored, and `hours_worked`, `labor_cost` and running expenses do not change.
+   - Admin corrections (T-12) change Late automatically, because it is computed from the current records.
+   - Void attendance is never counted: `AttendanceDay` already receives non-void records only. Make the employee summary query exclude `void` as well.
+   - The Clock In/Out page and the kiosk are not changed.
+
+**Acceptance criteria**
+
+- [ ] Shift 8:00 AM–12:00 PM and 1:00 PM–5:00 PM, grace 0. Clock In 8:15, Clock Out 12:00, Clock In 1:10, Clock Out 5:00 → Late shows **0.42 h** (25 minutes). Worked time shows 7.58 h and labor cost is unchanged from before this ticket.
+- [ ] The same employee clocking in at 7:55 and 12:58 → Late shows a dash.
+- [ ] Clock In 8:05 and working straight through to 5:00 PM without clocking out for lunch → Late **0.08 h** (5 minutes). The afternoon is not late.
+- [ ] Skipping the morning and clocking in at 1:20 PM → Late **0.33 h** (20 minutes), not 4.33 h.
+- [ ] One shift a day 8:00 AM–5:00 PM, Clock In 9:30 → Late **1.50 h**.
+- [ ] Flexible employees and attendance on a rest day always show a dash.
+- [ ] With the grace period set to 5 minutes:
+  - 8:04 → dash
+  - 8:05 → dash
+  - 8:07 → **0.12 h** (7 minutes)
+- [ ] An employee still Clocked In since 8:20 already shows **0.33 h** Late.
+- [ ] Late appears, right after Worked time, on:
+  - All Attendance › Daily attendance
+  - All Attendance › By employee
+  - My Attendance
+  - the Dashboard's Today's Attendance and My Attendance
+  - the phone cards of those tables
+- [ ] The Total rows on My Attendance and By employee add up Late over the whole range, including the days on other pages.
+- [ ] An Admin correction that moves the Clock In from 8:15 to 8:00 changes Late from 0.25 h to a dash.
+- [ ] System Settings shows "Late grace period" (0–60 minutes, default 0). Values outside that range are rejected, and only the Admin can change it.
+
+**Tests**
+
+Unit, `tests/Unit/LatenessTest.php`. Use a `#[DataProvider]` over these cases, all on work date 2026-10-21 and grace 0 unless stated. Windows are written as times on that date.
+
+| Case | Shift windows | Attendance | Grace | Minutes |
+| --- | --- | --- | --- | --- |
+| Late both halves | 08:00–12:00, 13:00–17:00 | 08:15–12:00, 13:10–17:00 | 0 | 25 |
+| On time | 08:00–12:00, 13:00–17:00 | 07:55–12:00, 12:58–17:00 | 0 | 0 |
+| Exactly at start | 08:00–12:00 | 08:00–12:00 | 0 | 0 |
+| Through lunch | 08:00–12:00, 13:00–17:00 | 08:05–17:00 | 0 | 5 |
+| Morning skipped | 08:00–12:00, 13:00–17:00 | 13:20–17:00 | 0 | 20 |
+| Back after a break | 08:00–12:00 | 08:00–10:00, 10:30–12:00 | 0 | 0 |
+| One shift | 08:00–17:00 | 09:30–17:00 | 0 | 90 |
+| Night shift | 22:00–06:00 (+1 day) | 22:45–06:00 | 0 | 45 |
+| Seconds dropped | 08:00–12:00 | 08:15:59–12:00 | 0 | 15 |
+| Still Clocked In (now 10:00) | 08:00–12:00 | 08:20–(open) | 0 | 20 |
+| Inside grace | 08:00–12:00 | 08:04–12:00 | 5 | 0 |
+| At grace | 08:00–12:00 | 08:05–12:00 | 5 | 0 |
+| Over grace counts in full | 08:00–12:00 | 08:07–12:00 | 5 | 7 |
+| Rest day | `[]` | 08:30–12:00 | 0 | 0 |
+| Flexible | `null` | 09:00–12:00 | 0 | 0 |
+| No attendance | 08:00–12:00 | none | 0 | 0 |
+
+Unit, hours display through `LaborCost::hoursForMinutes()`:
+- 25 → "0.42"
+- 5 → "0.08"
+- 20 → "0.33"
+- 90 → "1.50"
+- 7 → "0.12"
+- 15 → "0.25"
+
+Feature, `tests/Feature/Attendance/LateTest.php`. Use `$this->travelTo()`; give the users One shift or Two shifts with `UserShiftService` and clock in through `AttendanceService` so `shift_windows` is saved.
+- **Daily attendance:** All Attendance › Daily attendance shows the `Late` header after `Worked time`, and "0.42 h" for the late-both-halves day.
+- **By employee:** shows Late per day, and its Total row sums Late across two pages of days.
+- **My Attendance:** a Worker sees their own Late and the `range-total-late` total.
+- **Dashboard:** Today's Attendance (Admin) and the personal My Attendance (Worker) both show the Late column.
+- **No late:** Flexible and rest-day attendance show a dash. Void attendance is not counted.
+- **Corrections:** correcting the Clock In from 8:15 to 8:00 (`AttendanceCorrectionService`) changes Late from "0.25 h" to a dash.
+- **Money unchanged:** `labor_cost` and `Project::laborTotal()` are the same as without this ticket (₱606.67 for the late-both-halves day at ₱80.00/hr: 455 counted minutes).
+- **Grace period:** setting it to 5 through `SystemSettingsService` turns an 8:04 Clock In into a dash and leaves 8:07 at "0.12 h". `-1` and `61` fail validation.
+- **Permissions:** the Late column follows the existing page rules, with no new routes or actions:
+  - Admin and Staff see it on All Attendance.
+  - A Worker gets 403 on All Attendance but sees their own Late on My Attendance.
+  - Only the Admin can change `attendance_late_grace_minutes`: Staff and Workers get 403 on System Settings.
+
+**Verify:**
+- Run `php artisan test --filter=Late`.
+- In the browser, give a user Two shifts a day 8:00–12:00 and 1:00–5:00. Clock in at the kiosk late, then open All Attendance, By employee, My Attendance and the Dashboard, at 375 px and at desktop width.
+- Change the grace period in System Settings and reload.
 
 ## Definition of done
 

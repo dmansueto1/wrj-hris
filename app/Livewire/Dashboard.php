@@ -17,11 +17,12 @@ use Livewire\Component;
 
 /**
  * Dashboard (T-15.1), where everyone lands after login. Admin (dashboard.overview) sees today's key
- * numbers and Today's Attendance for every employee; Staff and Workers see a Clock In / Clock Out
+ * numbers, the Expenses row (T-16) and Today's Attendance for every employee; Staff and Workers see a Clock In / Clock Out
  * shortcut and their own last 14 days.
  *
  * @property-read bool $isOverview
  * @property-read array{clocked_in: int, present: int, employees: int, needs_correction: int, pending_devices: int} $overview
+ * @property-read array{month: array{labor: string, materials: string, running: string}, budget: array{warning: int, over: int}} $expenses
  * @property-read LengthAwarePaginator<int, array<string, mixed>> $todaysAttendance
  * @property-read LengthAwarePaginator<int, array<string, mixed>> $myDays
  * @property-read Attendance|null $openAttendance
@@ -52,6 +53,17 @@ class Dashboard extends Component
         abort_unless($this->isOverview, 403);
 
         return app(DashboardService::class)->overview();
+    }
+
+    /**
+     * @return array{month: array{labor: string, materials: string, running: string}, budget: array{warning: int, over: int}}
+     */
+    #[Computed]
+    public function expenses(): array
+    {
+        abort_unless($this->isOverview, 403);
+
+        return app(DashboardService::class)->expenses();
     }
 
     /**

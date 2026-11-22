@@ -19,7 +19,10 @@ class DashboardService
     /** The personal dashboard shows this many days, today included. */
     public const MY_DAYS = 14;
 
-    public function __construct(private readonly AttendanceHistoryService $history) {}
+    public function __construct(
+        private readonly AttendanceHistoryService $history,
+        private readonly ProjectExpenseService $expenses,
+    ) {}
 
     /**
      * Today's numbers for the admin cards: users Clocked In now, employees present today out of
@@ -37,6 +40,21 @@ class DashboardService
             'employees' => $today['employees'],
             'needs_correction' => $this->history->flaggedCount(),
             'pending_devices' => Device::query()->where('status', Device::STATUS_PENDING)->count(),
+        ];
+    }
+
+    /**
+     * The Expenses row for the Admin: running expenses of every project since the 1st of this month
+     * (labor counts once clocked out, so "today" alone would read low), and how many projects are at
+     * 80% or more of their budget, and over it.
+     *
+     * @return array{month: array{labor: string, materials: string, running: string}, budget: array{warning: int, over: int}}
+     */
+    public function expenses(): array
+    {
+        return [
+            'month' => $this->expenses->overallTotals(now()->startOfMonth()->toDateString(), now()->toDateString()),
+            'budget' => $this->expenses->budgetWatch(),
         ];
     }
 

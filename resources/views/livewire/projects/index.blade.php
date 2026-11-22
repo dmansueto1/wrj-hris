@@ -11,7 +11,7 @@
 
     {{-- Filter toolbar with view toggle --}}
     <div class="rounded-card bg-white p-4 shadow-card ring-1 ring-brand-navy/5">
-        <div class="grid gap-3 md:grid-cols-[1fr_12rem_auto]">
+        <div class="grid gap-3 md:grid-cols-[1fr_12rem_12rem_auto]">
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 icon="magnifying-glass"
@@ -23,6 +23,13 @@
             <flux:select wire:model.live="status" :aria-label="__('Filter by status')">
                 <flux:select.option value="">{{ __('All statuses') }}</flux:select.option>
                 @foreach ($statuses as $value => [$label])
+                    <flux:select.option :value="$value">{{ __($label) }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model.live="budget" :aria-label="__('Filter by budget used')" data-test="filter-budget">
+                <flux:select.option value="">{{ __('All budgets') }}</flux:select.option>
+                @foreach ($budgetFilters as $value => [$label])
                     <flux:select.option :value="$value">{{ __($label) }}</flux:select.option>
                 @endforeach
             </flux:select>
@@ -49,6 +56,9 @@
                 @if ($status !== '' && isset($statuses[$status]))
                     <x-filter-chip :label="__('Status: :value', ['value' => __($statuses[$status][0])])" wire:click="$set('status', '')" />
                 @endif
+                @if (isset($budgetFilters[$budget]))
+                    <x-filter-chip :label="__('Budget: :value', ['value' => __($budgetFilters[$budget][0])])" wire:click="$set('budget', '')" />
+                @endif
                 <button type="button" wire:click="clearFilters" class="text-xs font-medium text-brand-blue hover:text-brand-blue-dark hover:underline">
                     {{ __('Clear filters') }}
                 </button>
@@ -59,7 +69,7 @@
     @if ($this->projects->isEmpty())
         <x-data-card>
             @if ($hasFilters)
-                <x-empty-state icon="magnifying-glass" :title="__('No projects match your search.')" :description="__('Try a different code or name, or clear the filters.')">
+                <x-empty-state icon="magnifying-glass" :title="__('No projects match the filters.')" :description="__('Try a different code, name, status or budget filter, or clear the filters.')">
                     <flux:button size="sm" wire:click="clearFilters">{{ __('Clear filters') }}</flux:button>
                 </x-empty-state>
             @else
@@ -88,6 +98,7 @@
                         <div class="flex items-center gap-2"><flux:icon icon="map-pin" class="size-4 text-zinc-400" /><dt class="sr-only">{{ __('Location') }}</dt><dd class="truncate">{{ $project->location }}</dd></div>
                         <div class="flex items-center gap-2"><flux:icon icon="briefcase" class="size-4 text-zinc-400" /><dt class="sr-only">{{ __('Client') }}</dt><dd class="truncate">{{ $project->client_name ?? '—' }}</dd></div>
                         <div class="flex items-center gap-2"><flux:icon icon="banknotes" class="size-4 text-zinc-400" /><dt class="sr-only">{{ __('Budget') }}</dt><dd class="tabular-nums">{{ $project->budget !== null ? \App\Support\Money::format($project->budget) : __('No budget set') }}</dd></div>
+                        <div class="flex items-center gap-2"><flux:icon icon="calculator" class="size-4 text-zinc-400" /><dt>{{ __('Running expenses') }}</dt><dd class="font-semibold tabular-nums text-brand-navy">{{ \App\Support\Money::format($expenses->runningExpensesOf($project)) }}</dd></div>
                     </dl>
 
                     <div class="mt-auto">
@@ -123,6 +134,7 @@
                             <flux:table.column>{{ __('Client') }}</flux:table.column>
                             <flux:table.column>{{ __('Schedule') }}</flux:table.column>
                             <flux:table.column align="end">{{ __('Budget') }}</flux:table.column>
+                            <flux:table.column align="end">{{ __('Running expenses') }}</flux:table.column>
                             <flux:table.column>{{ __('Status') }}</flux:table.column>
                             @if ($canManage)
                                 <flux:table.column align="end"><span class="sr-only">{{ __('Actions') }}</span></flux:table.column>
@@ -148,6 +160,7 @@
                                             <span class="text-zinc-400">—</span>
                                         @endif
                                     </flux:table.cell>
+                                    <flux:table.cell align="end" class="font-semibold text-brand-navy">{{ \App\Support\Money::format($expenses->runningExpensesOf($project)) }}</flux:table.cell>
                                     <flux:table.cell>
                                         <x-status-badge :color="$project->statusColor()">{{ __($project->statusLabel()) }}</x-status-badge>
                                     </flux:table.cell>

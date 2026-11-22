@@ -4,6 +4,7 @@ namespace App\Livewire\Projects;
 
 use App\Livewire\Concerns\WithPerPage;
 use App\Models\Project;
+use App\Services\ProjectExpenseService;
 use App\Services\ProjectService;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -25,6 +26,19 @@ class Index extends Component
     #[Url(except: '')]
     public string $status = '';
 
+    /**
+     * Budget used (T-16): '' every project, "watch" 80% or more, "over" 100% or more. The Dashboard's
+     * "Projects near budget" card links here with "watch".
+     */
+    #[Url(except: '')]
+    public string $budget = '';
+
+    /** Budget filter => [label, minimum percent used]. */
+    public const BUDGET_FILTERS = [
+        'watch' => ['80% or more used', ProjectExpenseService::WARNING_PERCENT],
+        'over' => ['Over budget', 100],
+    ];
+
     /** "grid" (cards) or "table". */
     #[Url(except: 'grid')]
     public string $view = 'grid';
@@ -39,14 +53,14 @@ class Index extends Component
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['search', 'status'], true)) {
+        if (in_array($property, ['search', 'status', 'budget'], true)) {
             $this->resetPage();
         }
     }
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'status');
+        $this->reset('search', 'status', 'budget');
         $this->resetPage();
     }
 
@@ -68,7 +82,12 @@ class Index extends Component
     {
         $search = trim($this->search);
 
-        return Project::query()
+        $expenses = app(ProjectExpenseService::class);
+        $minimum = self::BUDGET_FILTERS[$this->budget][1] ?? null;
+
+        // T-16: labor and materials sums per project in two subqueries, for the Running expenses column.
+        return $expenses->withTotals(Project::query())
+            ->when($minimum !== null, fn ($query) => $expenses->whereBudgetUsedAtLeast($query, $minimum))
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('code', 'like', "%{$search}%")
@@ -85,8 +104,10 @@ class Index extends Component
         return view('livewire.projects.index', [
             'statuses' => Project::STATUSES,
             'canManage' => $this->canManage(),
-            'hasFilters' => trim($this->search) !== '' || $this->status !== '',
+            'budgetFilters' => self::BUDGET_FILTERS,
+            'hasFilters' => trim($this->search) !== '' || $this->status !== '' || isset(self::BUDGET_FILTERS[$this->budget]),
             'view' => $this->view === 'table' ? 'table' : 'grid',
+            'expenses' => app(ProjectExpenseService::class),
         ]);
     }
 
