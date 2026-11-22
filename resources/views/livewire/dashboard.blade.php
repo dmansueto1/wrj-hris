@@ -165,7 +165,7 @@
                 <a href="{{ route('attendance.mine') }}" wire:navigate class="text-sm font-medium text-brand-blue hover:text-brand-blue-dark hover:underline">{{ __('See all in My Attendance') }}</a>
             </div>
 
-            @include('livewire.attendance.partials.my-days-table', ['days' => $this->myDays, 'totalHours' => null])
+            @include('livewire.attendance.partials.my-days-table', ['days' => $this->myDays, 'totalHours' => null, 'totalLate' => null])
 
             <div class="border-t border-zinc-100 px-4 pb-3 sm:px-6">
                 <x-table-footer :paginator="$this->myDays" />

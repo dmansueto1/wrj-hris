@@ -384,7 +384,7 @@ class AllAttendanceTest extends TestCase
 
         $this->assertSame(
             // Today is the 21st: only the 20th is absent; the 22nd to the 25th have not happened yet.
-            ['present_days' => 2, 'absent_days' => 1, 'hours' => '9.00', 'labor_cost' => '720.00'],
+            ['present_days' => 2, 'absent_days' => 1, 'hours' => '9.00', 'labor_cost' => '720.00', 'late_minutes' => 0, 'late' => '0.00'],
             $component->instance()->employeeSummary,
         );
         $component->assertSeeHtml('data-test="employee-total-hours">9.00 h')

@@ -28,7 +28,7 @@ use Livewire\Component;
  *
  * @property-read LengthAwarePaginator<int, array{user: User, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $daily
  * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}>|null $employeeDays
- * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string}|null $employeeSummary
+ * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string, late_minutes: int, late: string}|null $employeeSummary
  * @property-read array{from: string, to: string, shortened: bool} $range
  * @property-read Collection<int, User> $users
  * @property-read Collection<int, Project> $projects
@@ -156,7 +156,7 @@ class Index extends Component
     }
 
     /**
-     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string}|null
+     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string, late_minutes: int, late: string}|null
      */
     #[Computed]
     public function employeeSummary(): ?array

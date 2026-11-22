@@ -21,7 +21,7 @@ use Livewire\Component;
  * the role.
  *
  * @property-read LengthAwarePaginator<int, array{date: Carbon, present: bool, rest_day: bool, future: bool, attendances: EloquentCollection<int, Attendance>}> $days
- * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string} $totals
+ * @property-read array{present_days: int, absent_days: int, hours: string, labor_cost: string, late_minutes: int, late: string} $totals
  * @property-read array{from: string, to: string, shortened: bool} $range
  */
 #[Title('My Attendance')]
@@ -73,7 +73,7 @@ class Mine extends Component
     /**
      * Present and absent days and hours; the labor cost is computed but never shown here.
      *
-     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string}
+     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string, late_minutes: int, late: string}
      */
     #[Computed]
     public function totals(): array

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Attendance;
+use App\Support\Costing\LaborCost;
 use Illuminate\Support\Collection;
 
 /**
@@ -107,6 +108,30 @@ final class AttendanceDay
         }
 
         return Money::fromCentavos((int) $done->sum(fn (Attendance $attendance) => Money::toCentavos((string) $attendance->hours_worked)));
+    }
+
+    /**
+     * Minutes late that day against the shift saved at clock-in (T-16.1), after the grace period in
+     * System Settings. 0 for Flexible, a rest day or no attendance.
+     */
+    public function lateMinutes(): int
+    {
+        return Lateness::minutes(
+            $this->attendances,
+            $this->attendances->first(fn (Attendance $attendance) => $attendance->shift_windows !== null)?->shift_windows,
+            Settings::int('attendance_late_grace_minutes'),
+            now(),
+        );
+    }
+
+    /**
+     * Late as hours like Worked time ("0.42"); null when not late.
+     */
+    public function late(): ?string
+    {
+        $minutes = $this->lateMinutes();
+
+        return $minutes > 0 ? LaborCost::hoursForMinutes($minutes) : null;
     }
 
     /**

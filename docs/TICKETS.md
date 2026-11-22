@@ -1578,7 +1578,8 @@ The last three tickets make every sensitive change traceable, give the client ex
    - Update the `@return` array shapes in `AttendanceHistoryService`, `Mine::totals()` and `Index::employeeSummary()`.
 
 5. **New partial `resources/views/livewire/attendance/partials/day-late.blade.php`:**
-   - **When late:** `"{late} h"` in `text-warning` font-semibold tabular-nums, with `data-test="late-hours"`. A `title` and an `sr-only` text read "Late :minutes min (shift :shift)", using `AttendanceDay::shiftLabel()`.
+   - **When late:** the hours in an amber `<x-status-badge color="amber">` ("0.42 h", `data-test="late-hours"`) through the shared partial `resources/views/livewire/attendance/partials/late-badge.blade.php`. A `title` and an `sr-only` text read "Late :minutes min (shift :shift)", using `AttendanceDay::shiftLabel()`.
+   - **Same style everywhere:** day cells, phone cards ("Late 0.42 h") and Total rows all use `late-badge`; a Total of "0.00" is plain gray text (`text-zinc-400`), so amber only ever means late.
    - **Otherwise:** a dash (`text-zinc-400`).
 
 6. **`day-cells.blade.php`:** include `day-late` as a new cell right after the Worked time cell (`align="end"`).
@@ -1627,6 +1628,7 @@ The last three tickets make every sensitive change traceable, give the client ex
   - the phone cards of those tables
 - [ ] The Total rows on My Attendance and By employee add up Late over the whole range, including the days on other pages.
 - [ ] An Admin correction that moves the Clock In from 8:15 to 8:00 changes Late from 0.25 h to a dash.
+- [ ] Late is the same amber badge in every table cell, phone card and Total row; a 0.00 h total is gray.
 - [ ] System Settings shows "Late grace period" (0–60 minutes, default 0). Values outside that range are rejected, and only the Admin can change it.
 
 **Tests**

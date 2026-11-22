@@ -1,5 +1,5 @@
 {{--
-    One row per employee for one date (T-11.4): Morning / Afternoon In and Out, worked time, photos,
+    One row per employee for one date (T-11.4): Morning / Afternoon In and Out, worked time, late (T-16.1), photos,
     remarks and Present / Absent / Rest Day, with stacked cards on phones. Used by the Daily attendance
     tab and the Dashboard's Today's Attendance (T-15.1).
     $rows: AttendanceHistoryService::daily() rows. $correctable: show the Correct menu (it also checks
@@ -15,6 +15,7 @@
                 <flux:table.column>{{ __('Afternoon In') }}</flux:table.column>
                 <flux:table.column>{{ __('Afternoon Out') }}</flux:table.column>
                 <flux:table.column align="end">{{ __('Worked time') }}</flux:table.column>
+                <flux:table.column align="end">{{ __('Late') }}</flux:table.column>
                 <flux:table.column>{{ __('Photos') }}</flux:table.column>
                 <flux:table.column class="w-32">{{ __('Remarks') }}</flux:table.column>
                 <flux:table.column>{{ __('Status') }}</flux:table.column>
@@ -68,6 +69,7 @@
                 @foreach ($row['attendances'] as $attendance)
                     @include('livewire.attendance.partials.attendance-line', ['attendance' => $attendance])
                 @endforeach
+                @include('livewire.attendance.partials.late-line', ['day' => \App\Support\AttendanceDay::of($row['attendances'])])
             </li>
         @endforeach
     </ul>

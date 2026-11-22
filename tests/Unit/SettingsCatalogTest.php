@@ -46,7 +46,7 @@ class SettingsCatalogTest extends TestCase
     {
         $this->assertSame(['Attendance', 'Materials', 'Security', 'Devices'], array_keys(SettingsCatalog::all()));
         $this->assertSame(
-            ['attendance_require_photo', 'attendance_require_approved_device', 'attendance_flag_after_hours', 'kiosk_verified_seconds'],
+            ['attendance_require_photo', 'attendance_require_approved_device', 'attendance_flag_after_hours', 'attendance_late_grace_minutes', 'kiosk_verified_seconds'],
             array_column(SettingsCatalog::all()['Attendance'], 'key'),
         );
     }
@@ -59,6 +59,7 @@ class SettingsCatalogTest extends TestCase
             'attendance_require_photo' => '1',
             'attendance_require_approved_device' => '1',
             'attendance_flag_after_hours' => '12',
+            'attendance_late_grace_minutes' => '0', // T-16.1: no grace, every late minute counts
             'kiosk_verified_seconds' => '120',
             'material_markup_rate' => '0.20',
             'idle_logout_minutes' => '30',

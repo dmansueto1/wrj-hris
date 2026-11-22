@@ -70,6 +70,7 @@
                     <flux:table.column>{{ __('Afternoon In') }}</flux:table.column>
                     <flux:table.column>{{ __('Afternoon Out') }}</flux:table.column>
                     <flux:table.column align="end">{{ __('Worked time') }}</flux:table.column>
+                    <flux:table.column align="end">{{ __('Late') }}</flux:table.column>
                     <flux:table.column>{{ __('Photos') }}</flux:table.column>
                     <flux:table.column class="w-32">{{ __('Remarks') }}</flux:table.column>
                     <flux:table.column>{{ __('Status') }}</flux:table.column>
@@ -101,6 +102,7 @@
                     <flux:table.row class="bg-brand-tint/50">
                         <flux:table.cell colspan="5" class="font-semibold text-brand-navy">{{ __('Total') }}</flux:table.cell>
                         <flux:table.cell align="end" class="whitespace-nowrap font-bold tabular-nums text-brand-navy"><span data-test="employee-total-hours">{{ $this->employeeSummary['hours'] }} h</span></flux:table.cell>
+                        <flux:table.cell align="end">@include('livewire.attendance.partials.late-badge', ['hours' => $this->employeeSummary['late'], 'test' => 'employee-total-late'])</flux:table.cell>
                         <flux:table.cell :colspan="auth()->user()->can('attendance.correct') ? 4 : 3"></flux:table.cell>
                     </flux:table.row>
                 </flux:table.rows>
@@ -121,11 +123,15 @@
                     @foreach ($day['attendances'] as $attendance)
                         @include('livewire.attendance.partials.attendance-line', ['attendance' => $attendance])
                     @endforeach
+                    @include('livewire.attendance.partials.late-line', ['day' => \App\Support\AttendanceDay::of($day['attendances'])])
                 </li>
             @endforeach
             <li class="flex items-center justify-between gap-3 bg-brand-tint/50 p-4 text-sm">
                 <span class="font-semibold text-brand-navy">{{ __('Total') }}</span>
-                <span class="font-bold tabular-nums text-brand-navy">{{ $this->employeeSummary['hours'] }} h</span>
+                <span class="text-end tabular-nums">
+                    <span class="block font-bold text-brand-navy">{{ $this->employeeSummary['hours'] }} h</span>
+                    <span class="mt-1 block">@include('livewire.attendance.partials.late-badge', ['hours' => $this->employeeSummary['late'], 'label' => true])</span>
+                </span>
             </li>
         </ul>
 

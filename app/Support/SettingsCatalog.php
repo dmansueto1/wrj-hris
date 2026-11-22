@@ -46,6 +46,18 @@ class SettingsCatalog
             'unit' => 'hours',
         ],
         [
+            // T-16.1
+            'key' => 'attendance_late_grace_minutes',
+            'label' => 'Late grace period',
+            'description' => 'Clocking in up to this many minutes after the shift starts is not late. 0 counts every minute.',
+            'group' => 'Attendance',
+            'type' => 'int',
+            'default' => '0',
+            'min' => 0,
+            'max' => 60,
+            'unit' => 'minutes',
+        ],
+        [
             'key' => 'kiosk_verified_seconds',
             'label' => 'Time to press Clock In or Clock Out after signing in at the kiosk',
             'description' => 'After this, the worker enters their username and password again.',

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\User;
+use App\Support\AttendanceDay;
+use App\Support\Costing\LaborCost;
 use App\Support\Money;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -259,7 +261,9 @@ class AttendanceHistoryService
      * Present and absent days, hours and labor cost (closed and adjusted) over the range. A rest
      * day without attendance is not an absent day.
      *
-     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string}
+     * Late (T-16.1) adds up each day's late minutes, shown as hours like Worked time.
+     *
+     * @return array{present_days: int, absent_days: int, hours: string, labor_cost: string, late_minutes: int, late: string}
      */
     public function employeeSummary(int $userId, string $from, string $to): array
     {
@@ -291,11 +295,24 @@ class AttendanceHistoryService
             ->selectRaw('COALESCE(SUM(hours_worked), 0) AS hours, COALESCE(SUM(labor_cost), 0) AS labor_cost')
             ->first();
 
+        // Late (T-16.1): each day's non-void attendance against the shift saved at clock-in, after
+        // the grace period (AttendanceDay::lateMinutes() reads it from System Settings).
+        $lateMinutes = Attendance::query()
+            ->where('user_id', $userId)
+            ->whereIn('status', Attendance::PRESENT_STATUSES)
+            ->whereBetween('work_date', [$from, $to])
+            ->orderBy('clock_in_at')
+            ->get(['id', 'work_date', 'clock_in_at', 'clock_out_at', 'shift_windows'])
+            ->groupBy(fn (Attendance $attendance) => $attendance->work_date->toDateString())
+            ->sum(fn ($day) => AttendanceDay::of($day)->lateMinutes());
+
         return [
             'present_days' => count($presentDates),
             'absent_days' => $absentDays,
             'hours' => $this->hundredths((string) ($sums->hours ?? '0')),
             'labor_cost' => $this->hundredths((string) ($sums->labor_cost ?? '0')),
+            'late_minutes' => (int) $lateMinutes,
+            'late' => LaborCost::hoursForMinutes((int) $lateMinutes),
         ];
     }
 

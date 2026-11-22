@@ -1,5 +1,5 @@
 {{--
-    Morning In, Morning Out, Afternoon In, Afternoon Out, Worked time (and Photos when $photos) cells of one
+    Morning In, Morning Out, Afternoon In, Afternoon Out, Worked time, Late (T-16.1) (and Photos when $photos) cells of one
     person's day on the attendance tables, one line each. The project shows when hovering a time.
     A record running through lunch (or a one-shift day) fills Morning In and Afternoon Out.
 --}}
@@ -21,6 +21,10 @@
 
 <flux:table.cell align="end" class="tabular-nums">
     @include('livewire.attendance.partials.day-worked', ['day' => $day])
+</flux:table.cell>
+
+<flux:table.cell align="end" class="tabular-nums" data-test="late">
+    @include('livewire.attendance.partials.day-late', ['day' => $day])
 </flux:table.cell>
 
 @if ($photos)

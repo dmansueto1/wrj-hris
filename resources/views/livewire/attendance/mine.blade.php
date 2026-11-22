@@ -35,7 +35,7 @@
         @if ($this->days->isEmpty())
             <x-empty-state icon="calendar-days" :title="__('No days on this page.')" :description="__('Go back to the first page or pick other dates.')" />
         @else
-            @include('livewire.attendance.partials.my-days-table', ['days' => $this->days, 'totalHours' => $this->totals['hours']])
+            @include('livewire.attendance.partials.my-days-table', ['days' => $this->days, 'totalHours' => $this->totals['hours'], 'totalLate' => $this->totals['late']])
         @endif
 
         <div class="border-t border-zinc-100 px-4 pb-3 sm:px-6">

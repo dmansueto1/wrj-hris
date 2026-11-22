@@ -70,6 +70,7 @@ class SystemSettingsPageTest extends TestCase
                 'attendance_require_photo' => true,
                 'attendance_require_approved_device' => true,
                 'attendance_flag_after_hours' => '12',
+                'attendance_late_grace_minutes' => '0',
                 'kiosk_verified_seconds' => '120',
                 'material_markup_rate' => '20',
                 'idle_logout_minutes' => '30',
