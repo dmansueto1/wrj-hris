@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AttendanceCorrectionService;
+use App\Services\AuditLogService;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -26,6 +27,7 @@ use Livewire\Component;
  *
  * @property-read Attendance|null $attendance
  * @property-read Collection<int, Project> $projects
+ * @property-read Collection<int, array{at: Carbon, by: string, action: string, changes: list<array{label: string, old: string, new: string}>, reason: string|null}> $auditHistory
  * @property-read list<array{before: Attendance, after: EloquentCollection<int, Attendance>, by: User|null, reason: string|null, at: Carbon|null}> $history
  */
 class Correction extends Component
@@ -164,6 +166,21 @@ class Correction extends Component
     /**
      * @return list<array{before: Attendance, after: EloquentCollection<int, Attendance>, by: User|null, reason: string|null, at: Carbon|null}>
      */
+    /**
+     * The audit log of the attendance being corrected and every record before it (T-17).
+     *
+     * @return Collection<int, array{at: Carbon, by: string, action: string, changes: list<array{label: string, old: string, new: string}>, reason: string|null}>
+     */
+    #[Computed]
+    public function auditHistory(): Collection
+    {
+        abort_unless(Auth::user()?->can('audit.view'), 403);
+
+        $attendance = $this->attendance;
+
+        return $attendance === null ? collect() : app(AuditLogService::class)->forAttendance($attendance);
+    }
+
     #[Computed]
     public function history(): array
     {

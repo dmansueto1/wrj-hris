@@ -58,6 +58,8 @@ class UserService
         }
 
         DB::transaction(function () use ($user, $data, $editor) {
+            $oldRole = (string) $user->getRoleNames()->first();
+
             $user->forceFill([
                 'employee_no' => $data['employee_no'],
                 'first_name' => $data['first_name'],
@@ -68,6 +70,10 @@ class UserService
 
             $user->syncRoles([$data['role']]);
 
+            if ($oldRole !== $data['role']) {
+                $this->log($user, $editor, 'Changed role', ['role' => $oldRole], ['role' => $data['role']]);
+            }
+
             $this->rates->changeRate($user, $data['hourly_rate'], $editor);
         });
     }
@@ -76,23 +82,28 @@ class UserService
     {
         $this->guardAgainstSelf($user, $editor, __('You cannot deactivate your own account.'));
 
-        $user->forceFill(['status' => User::STATUS_INACTIVE])->save();
+        $this->changeStatus($user, User::STATUS_INACTIVE, $editor, 'Deactivated user');
     }
 
-    public function reactivate(User $user): void
+    public function reactivate(User $user, ?User $editor = null): void
     {
-        $user->forceFill(['status' => User::STATUS_ACTIVE])->save();
+        $this->changeStatus($user, User::STATUS_ACTIVE, $editor, 'Reactivated user');
     }
 
     /**
-     * Set a new temporary password the user must change at their next login.
+     * Set a new temporary password the user must change at their next login. The activity log
+     * records that it happened and who did it, never the password (T-17).
      */
-    public function resetPassword(User $user, string $temporaryPassword): void
+    public function resetPassword(User $user, string $temporaryPassword, ?User $editor = null): void
     {
-        $user->forceFill([
-            'password' => $temporaryPassword,
-            'must_change_password' => true,
-        ])->save();
+        DB::transaction(function () use ($user, $temporaryPassword, $editor) {
+            $user->forceFill([
+                'password' => $temporaryPassword,
+                'must_change_password' => true,
+            ])->save();
+
+            $this->log($user, $editor, 'Reset password');
+        });
     }
 
     /**
@@ -103,6 +114,41 @@ class UserService
         $this->guardAgainstSelf($user, $editor, __('You cannot archive your own account.'));
 
         $user->delete();
+    }
+
+    private function changeStatus(User $user, string $status, ?User $editor, string $description): void
+    {
+        $old = $user->status;
+
+        DB::transaction(function () use ($user, $status, $editor, $description, $old) {
+            $user->forceFill(['status' => $status])->save();
+
+            if ($old !== $status) {
+                $this->log($user, $editor, $description, ['status' => $old], ['status' => $status]);
+            }
+        });
+    }
+
+    /**
+     * T-17: one entry in the "users" log. Only the given fields are written, so a password or
+     * remember token can never end up in the activity log.
+     *
+     * @param  array<string, string>  $old
+     * @param  array<string, string>  $new
+     */
+    private function log(User $user, ?User $editor, string $description, array $old = [], array $new = []): void
+    {
+        $activity = activity('users')->performedOn($user);
+
+        if ($editor !== null) {
+            $activity->causedBy($editor);
+        }
+
+        if ($old !== [] || $new !== []) {
+            $activity->withProperties(['old' => $old, 'new' => $new]);
+        }
+
+        $activity->log($description);
     }
 
     private function guardAgainstSelf(User $user, User $editor, string $message): void

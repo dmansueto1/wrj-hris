@@ -10,7 +10,7 @@ use InvalidArgumentException;
 class UserRateService
 {
     /**
-     * Change the user's hourly rate and record it in the rate history.
+     * Change the user's hourly rate and record it in the rate history and the activity log (T-17).
      * Does nothing when the rate is unchanged.
      */
     public function changeRate(User $user, string $newRate, User $changedBy): void
@@ -24,7 +24,15 @@ class UserRateService
                 return;
             }
 
+            $oldRate = $locked->hourly_rate;
             $locked->forceFill(['hourly_rate' => $newRate])->save();
+
+            // T-17: who changed the rate, from what to what.
+            activity('users')
+                ->performedOn($locked)
+                ->causedBy($changedBy)
+                ->withProperties(['old' => ['hourly_rate' => $oldRate], 'new' => ['hourly_rate' => $newRate]])
+                ->log('Changed hourly rate');
 
             $locked->rateHistories()->create([
                 'hourly_rate' => $newRate,

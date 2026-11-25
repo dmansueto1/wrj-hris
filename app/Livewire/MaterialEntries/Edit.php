@@ -4,10 +4,14 @@ namespace App\Livewire\MaterialEntries;
 
 use App\Livewire\MaterialEntries\Concerns\MaterialEntryForm;
 use App\Models\ProjectMaterialEntry;
+use App\Services\AuditLogService;
 use App\Services\MaterialEntryService;
 use Flux\Flux;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -46,6 +50,19 @@ class Edit extends Component
         Flux::toast(variant: 'success', text: __('Material purchase updated.'));
 
         $this->redirectRoute('material-entries.index', navigate: true);
+    }
+
+    /**
+     * The entry's audit log (T-17), Admin only.
+     *
+     * @return Collection<int, array{at: Carbon, by: string, action: string, changes: list<array{label: string, old: string, new: string}>, reason: string|null}>
+     */
+    #[Computed]
+    public function auditHistory(): Collection
+    {
+        abort_unless(Auth::user()?->can('audit.view'), 403);
+
+        return app(AuditLogService::class)->forMaterialEntry($this->materialEntry);
     }
 
     protected function markupRate(): string

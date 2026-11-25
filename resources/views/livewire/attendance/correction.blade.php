@@ -76,6 +76,10 @@
                     </flux:button>
                 </div>
             </form>
+
+            @can('audit.view')
+                <x-audit-history :entries="$this->auditHistory" class="mt-6 border-t border-zinc-100 pt-5" />
+            @endcan
         @endif
     </flux:modal>
 

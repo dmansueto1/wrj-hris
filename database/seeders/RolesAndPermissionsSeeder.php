@@ -29,6 +29,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'devices.manage',
             'settings.manage',
             'dashboard.overview',
+            'audit.view',
         ],
         'staff' => [
             'attendance.clock',

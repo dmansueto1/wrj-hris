@@ -32,12 +32,15 @@ class AttendanceCorrectionService
     /** The adjustment_reason column is a VARCHAR(255). */
     public const MAX_REASON_LENGTH = 255;
 
+    /** The fields an audit entry compares (T-17): only the ones that changed are logged. */
+    public const AUDITED_FIELDS = ['project_id', 'clock_in_at', 'clock_out_at', 'minutes_worked', 'hours_worked', 'labor_cost', 'status'];
+
     /**
      * Set the missing clock-out of an attendance that is still Clocked In or flagged.
      */
     public function setClockOut(Attendance $a, Carbon $clockOut, string $reason, User $admin): Attendance
     {
-        return $this->correct($a, $reason, $admin, function (Attendance $original) use ($clockOut) {
+        return $this->correct($a, $reason, $admin, 'Set clock-out', function (Attendance $original) use ($clockOut) {
             if ($original->clock_out_at !== null) {
                 throw ValidationException::withMessages(['clock_out' => __('This attendance already has a clock-out. Use Change times instead.')]);
             }
@@ -48,7 +51,7 @@ class AttendanceCorrectionService
 
     public function changeTimes(Attendance $a, Carbon $in, Carbon $out, string $reason, User $admin): Attendance
     {
-        return $this->correct($a, $reason, $admin, fn (Attendance $original) => [
+        return $this->correct($a, $reason, $admin, 'Changed times', fn (Attendance $original) => [
             $this->timed($original, $in->copy()->startOfMinute(), $out->copy()->startOfMinute()),
         ])[0];
     }
@@ -58,7 +61,7 @@ class AttendanceCorrectionService
      */
     public function changeProject(Attendance $a, Project $project, string $reason, User $admin): Attendance
     {
-        return $this->correct($a, $reason, $admin, function (Attendance $original) use ($project) {
+        return $this->correct($a, $reason, $admin, 'Changed project', function (Attendance $original) use ($project) {
             if ($original->clock_out_at === null) {
                 throw ValidationException::withMessages(['project_id' => __('Set the clock-out first.')]);
             }
@@ -79,7 +82,7 @@ class AttendanceCorrectionService
      */
     public function void(Attendance $a, string $reason, User $admin): Attendance
     {
-        return $this->correct($a, $reason, $admin, function (Attendance $original) {
+        return $this->correct($a, $reason, $admin, 'Voided attendance', function (Attendance $original) {
             $voided = $original->replicate();
             $voided->status = Attendance::STATUS_VOID;
 
@@ -129,11 +132,13 @@ class AttendanceCorrectionService
      * Checks the editor and the reason, then, in a transaction on a fresh, locked copy of the
      * attendance: builds the corrected record(s), archives the original and saves them pointing
      * back to it. The given model is refreshed afterwards (it is then archived).
+     * T-17: one audit entry (log "attendance") on the original, caused by the Admin, with the
+     * changed fields (`old`, `new`), the `reason` and the `corrected_id` of the new record.
      *
      * @param  callable(Attendance): list<Attendance>  $change  returns the unsaved corrected record(s)
      * @return list<Attendance>
      */
-    private function correct(Attendance $a, string $reason, User $admin, callable $change): array
+    private function correct(Attendance $a, string $reason, User $admin, string $description, callable $change): array
     {
         if (! $admin->can('attendance.correct')) {
             throw new AuthorizationException;
@@ -149,7 +154,7 @@ class AttendanceCorrectionService
             throw ValidationException::withMessages(['reason' => __('Keep the reason to :max characters or fewer.', ['max' => self::MAX_REASON_LENGTH])]);
         }
 
-        $records = DB::transaction(function () use ($a, $change, $reason, $admin) {
+        $records = DB::transaction(function () use ($a, $change, $reason, $admin, $description) {
             User::query()->lockForUpdate()->find($a->user_id);
 
             $original = Attendance::query()->lockForUpdate()->find($a->id);
@@ -176,12 +181,47 @@ class AttendanceCorrectionService
                 ])->save();
             }
 
+            [$old, $new] = $this->changes($original, $records[0]);
+
+            activity('attendance')
+                ->performedOn($original)
+                ->causedBy($admin)
+                ->withProperties(['old' => $old, 'new' => $new, 'reason' => $reason, 'corrected_id' => $records[0]->id])
+                ->log($description);
+
             return $records;
         });
 
         $a->refresh();
 
         return $records;
+    }
+
+    /**
+     * The audited fields that differ between the original and its correction, as plain values
+     * (times "Y-m-d H:i", money and hours as two-decimal strings).
+     *
+     * @return array{0: array<string, int|string|null>, 1: array<string, int|string|null>}
+     */
+    private function changes(Attendance $original, Attendance $corrected): array
+    {
+        $value = function (Attendance $attendance, string $field): int|string|null {
+            $raw = $attendance->getAttribute($field);
+
+            return $raw instanceof CarbonInterface ? $raw->format('Y-m-d H:i') : $raw;
+        };
+
+        $old = [];
+        $new = [];
+
+        foreach (self::AUDITED_FIELDS as $field) {
+            if ($value($original, $field) !== $value($corrected, $field)) {
+                $old[$field] = $value($original, $field);
+                $new[$field] = $value($corrected, $field);
+            }
+        }
+
+        return [$old, $new];
     }
 
     /**

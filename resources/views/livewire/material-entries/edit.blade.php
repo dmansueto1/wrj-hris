@@ -14,4 +14,8 @@
             <flux:button variant="primary" type="submit" data-test="save-entry-button">{{ __('Save changes') }}</flux:button>
         </div>
     </form>
+
+    @can('audit.view')
+        <x-audit-history :entries="$this->auditHistory" class="rounded-card bg-white p-6 shadow-card ring-1 ring-brand-navy/5" />
+    @endcan
 </div>

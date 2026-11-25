@@ -6,10 +6,13 @@ use App\Livewire\Concerns\WithPerPage;
 use App\Livewire\Users\Concerns\UserFormRules;
 use App\Models\User;
 use App\Models\UserRateHistory;
+use App\Services\AuditLogService;
 use App\Services\UserService;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Computed;
@@ -62,7 +65,7 @@ class Edit extends Component
 
         $this->user->refresh();
         $this->fillFromUser();
-        unset($this->rateHistories);
+        unset($this->rateHistories, $this->auditHistory);
 
         Flux::toast(variant: 'success', text: __('User updated.'));
     }
@@ -76,7 +79,7 @@ class Edit extends Component
 
     public function reactivate(UserService $users): void
     {
-        $users->reactivate($this->user);
+        $users->reactivate($this->user, $this->editor());
 
         Flux::toast(variant: 'success', text: __('User reactivated.'));
     }
@@ -85,7 +88,7 @@ class Edit extends Component
     {
         $this->validate(['new_password' => ['required', 'string', Password::defaults()]]);
 
-        $users->resetPassword($this->user, $this->new_password);
+        $users->resetPassword($this->user, $this->new_password, $this->editor());
 
         $this->reset('new_password');
         Flux::modal('reset-password')->close();
@@ -99,6 +102,19 @@ class Edit extends Component
         Flux::toast(text: __('User archived.'));
 
         $this->redirectRoute('users.index', navigate: true);
+    }
+
+    /**
+     * Rate, role, status, shift and password-reset entries of the audit log (T-17, Admin only).
+     *
+     * @return Collection<int, array{at: Carbon, by: string, action: string, changes: list<array{label: string, old: string, new: string}>, reason: string|null}>
+     */
+    #[Computed]
+    public function auditHistory(): Collection
+    {
+        abort_unless(Auth::user()?->can('audit.view'), 403);
+
+        return app(AuditLogService::class)->forUser($this->user);
     }
 
     /**

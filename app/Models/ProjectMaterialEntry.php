@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * One material purchase for a project (PRD US-30). The markup rate is saved on the entry and the
@@ -37,7 +39,30 @@ use Illuminate\Support\Carbon;
 class ProjectMaterialEntry extends Model
 {
     /** @use HasFactory<ProjectMaterialEntryFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, LogsActivity, SoftDeletes;
+
+    /** T-17: recording, changing and archiving an entry are logged (not restoring). */
+    protected static array $recordEvents = ['created', 'updated', 'deleted'];
+
+    /** The fields the audit log keeps; only the ones that changed on an update. */
+    public const AUDITED_FIELDS = ['entry_date', 'project_id', 'material_id', 'quantity', 'unit_price', 'markup_rate', 'subtotal', 'markup_amount', 'total_cost', 'remarks'];
+
+    /**
+     * T-17: log "material-entries", caused by the signed-in user (Staff who recorded it, or the Admin).
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('material-entries')
+            ->logOnly(self::AUDITED_FIELDS)
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $event) => match ($event) {
+                'created' => 'Recorded purchase',
+                'deleted' => 'Archived purchase',
+                default => 'Changed purchase',
+            });
+    }
 
     protected static function booted(): void
     {

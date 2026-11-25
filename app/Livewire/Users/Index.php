@@ -57,7 +57,7 @@ class Index extends Component
 
     public function reactivate(int $userId, UserService $users): void
     {
-        $this->changeStatus($userId, fn (User $user) => $users->reactivate($user), __('User reactivated.'));
+        $this->changeStatus($userId, fn (User $user) => $users->reactivate($user, $this->editor()), __('User reactivated.'));
     }
 
     /**
