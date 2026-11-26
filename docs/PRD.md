@@ -83,7 +83,7 @@ Phase 1 is a responsive web system only, used through a browser; it requires an 
 **US-01 – As any user, I want to log in securely so only I can record my attendance.**
 
 - Login uses a username plus password. The username is the first letter of the first name plus the last name (John Doe → `jdoe`); if it is taken, a number is added (`jdoe2`).
-- Passwords must be at least 12 characters with upper and lower case letters, a number and a symbol.
+- Passwords must be at least 8 characters with upper and lower case letters, a number and a symbol.
 - After 5 failed attempts the account is locked for 15 minutes.
 - Inactive users cannot log in.
 - Users are logged out after 30 minutes of inactivity (Admin and Staff).
@@ -236,7 +236,7 @@ Security in Phase 1 relies on strong passwords, lockout and strict roles; two-fa
 
 | Area | Requirement |
 | --- | --- |
-| Password policy | Minimum 12 characters, mixed case, number, symbol; rejects known breached passwords |
+| Password policy | Minimum 8 characters, mixed case, number, symbol; rejects known breached passwords |
 | Password storage | Hashed with bcrypt or argon2id; never stored in plain text |
 | Brute-force protection | 5 failed attempts → 15-minute lockout per account and IP |
 | Sessions | HTTPS only, secure HttpOnly cookies, 30-minute idle timeout for Admin and Staff |

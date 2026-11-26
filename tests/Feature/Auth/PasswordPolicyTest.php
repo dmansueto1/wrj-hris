@@ -16,10 +16,11 @@ class PasswordPolicyTest extends TestCase
     {
         return [
             'common weak password' => ['password123', false],
-            'too short' => ['Sh0rt!pw', false],
+            'too short (7 characters)' => ['Sh0rt!p', false],
             'no symbol' => ['Str0ngPassw0rd', false],
             'no number' => ['Strong!Password', false],
             'no upper case' => ['str0ng!passw0rd', false],
+            'exactly 8 characters' => ['Sh0rt!pw', true],
             'strong' => ['Str0ng!Passw0rd', true],
         ];
     }

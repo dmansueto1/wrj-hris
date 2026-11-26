@@ -37,10 +37,10 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
-        // PRD section 8: min 12, mixed case, numbers, symbols. The breached-password
+        // PRD section 8: min 8, mixed case, numbers, symbols. The breached-password
         // check calls an outside service, so it only runs in production.
         Password::defaults(function (): Password {
-            $rule = Password::min(12)
+            $rule = Password::min(8)
                 ->mixedCase()
                 ->letters()
                 ->numbers()

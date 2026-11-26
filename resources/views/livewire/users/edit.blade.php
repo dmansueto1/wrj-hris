@@ -96,7 +96,7 @@
             <flux:input
                 wire:model="new_password"
                 :label="__('Temporary password')"
-                :description="__('At least 12 characters, with upper and lower case letters, a number and a symbol.')"
+                :description="__('At least 8 characters, with upper and lower case letters, a number and a symbol.')"
                 type="password"
                 required
                 autocomplete="new-password"
